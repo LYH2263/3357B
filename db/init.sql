@@ -163,6 +163,52 @@ CREATE TABLE `exam_answer` (
     INDEX `idx_attempt_id` (`attempt_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='答题详情表';
 
+-- (14) 公告表 announcement
+CREATE TABLE `announcement` (
+    `announcement_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(255) NOT NULL COMMENT '公告标题',
+    `content` TEXT COMMENT '公告正文(富文本/纯文本)',
+    `content_type` VARCHAR(20) NOT NULL DEFAULT 'TEXT' COMMENT '内容类型：TEXT纯文本/HTML富文本',
+    `target_type` VARCHAR(20) NOT NULL DEFAULT 'ALL' COMMENT '目标范围：ALL全体/SPECIFIED指定班级',
+    `is_pinned` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶：0否/1是',
+    `pin_order` INT NOT NULL DEFAULT 0 COMMENT '置顶排序(置顶公告内部排序)',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT草稿/PUBLISHED已发布/REVOKED已撤回',
+    `effective_time` DATETIME COMMENT '生效时间',
+    `expire_time` DATETIME COMMENT '失效时间',
+    `created_by` INT COMMENT '创建教师ID',
+    `created_by_name` VARCHAR(50) COMMENT '创建教师姓名',
+    `published_at` DATETIME COMMENT '发布时间',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_status` (`status`),
+    INDEX `idx_published` (`status`, `published_at`),
+    INDEX `idx_pinned` (`is_pinned`, `pin_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告表';
+
+-- (15) 公告-目标班级关联表 announcement_class
+CREATE TABLE `announcement_class` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `announcement_id` INT NOT NULL COMMENT '公告ID',
+    `class_id` INT NOT NULL COMMENT '班级ID',
+    `class_name` VARCHAR(100) COMMENT '班级名称(冗余)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    UNIQUE KEY `uk_announcement_class` (`announcement_id`, `class_id`),
+    INDEX `idx_announcement_id` (`announcement_id`),
+    INDEX `idx_class_id` (`class_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告目标班级关联表';
+
+-- (16) 公告-已读记录表 announcement_read
+CREATE TABLE `announcement_read` (
+    `read_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `announcement_id` INT NOT NULL COMMENT '公告ID',
+    `student_id` INT NOT NULL COMMENT '学生ID',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `read_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '阅读时间',
+    UNIQUE KEY `uk_announcement_student` (`announcement_id`, `student_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_announcement_id` (`announcement_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告已读记录表';
+
 -- Seeding Data (30 records per table)
 
 -- Classes
@@ -404,3 +450,23 @@ INSERT INTO `news` (newstitle, newscontent, newsdate) VALUES
 ('技术前沿28', '内容详情28', '2026-02-28 08:00:00'),
 ('技术前沿29', '内容详情29', '2026-03-01 08:00:00'),
 ('技术前沿30', '内容详情30', '2026-03-02 08:00:00');
+
+-- Announcements
+INSERT INTO `announcement` (`title`, `content`, `content_type`, `target_type`, `is_pinned`, `pin_order`, `status`, `effective_time`, `expire_time`, `created_by`, `created_by_name`, `published_at`, `created_at`) VALUES
+('关于2026年春季学期开学的重要通知', '各位同学请注意，2026年春季学期将于3月1日正式开学，请提前做好返校准备，按时到校注册。如有特殊情况不能按时返校，请提前向辅导员请假。', 'TEXT', 'ALL', 1, 1, 'PUBLISHED', '2026-02-20 00:00:00', '2026-12-31 23:59:59', 1, '张老师', '2026-02-20 09:00:00', '2026-02-20 08:00:00'),
+('图书馆延长开放时间的通知', '为满足同学们的学习需求，图书馆从即日起延长开放时间：周一至周五 7:00-22:30，周六周日 8:00-22:00。请同学们合理安排学习时间。', 'TEXT', 'ALL', 1, 2, 'PUBLISHED', '2026-02-22 00:00:00', '2026-06-30 23:59:59', 2, '李老师', '2026-02-22 10:00:00', '2026-02-22 09:00:00'),
+('计算机2101班课程调整通知', '本周五的Java程序设计课程因故调整至下周一上午第3-4节，地点不变。请同学们相互转告，按时上课。', 'TEXT', 'SPECIFIED', 0, 0, 'PUBLISHED', '2026-02-25 00:00:00', '2026-03-10 23:59:59', 1, '张老师', '2026-02-25 14:00:00', '2026-02-25 13:00:00'),
+('软件2101班实验课安排', '软件工程实验班的同学们注意，本周六下午将进行第一次实验课，请提前完成预习报告，准时到达实验楼302教室。', 'TEXT', 'SPECIFIED', 0, 0, 'PUBLISHED', '2026-02-26 00:00:00', '2026-03-05 23:59:59', 5, '孙老师', '2026-02-26 11:00:00', '2026-02-26 10:00:00'),
+('全校网络系统维护通知', '本周日凌晨2:00-6:00将进行全校网络系统升级维护，届时校园网将暂停服务，请同学们提前下载好所需资料。', 'TEXT', 'ALL', 0, 0, 'PUBLISHED', '2026-02-28 00:00:00', '2026-03-01 23:59:59', 6, '周老师', '2026-02-27 16:00:00', '2026-02-27 15:00:00'),
+('期中考试安排预告', '本学期期中考试将于第8周进行，请同学们提前做好复习准备。具体考试时间表将另行通知。', 'TEXT', 'ALL', 0, 0, 'DRAFT', NULL, NULL, 2, '李老师', NULL, '2026-02-28 10:00:00'),
+('AI2101班项目答辩通知', '人工智能实验班的项目答辩定于下周三下午进行，请各组同学准备好演示PPT和项目文档。', 'TEXT', 'SPECIFIED', 0, 0, 'PUBLISHED', '2026-03-01 00:00:00', '2026-03-15 23:59:59', 4, '赵老师', '2026-02-28 15:00:00', '2026-02-28 14:00:00'),
+('校园招聘会预告', '3月15日将在体育馆举办春季校园招聘会，届时将有50余家企业到场，欢迎同学们积极参加。', 'TEXT', 'ALL', 0, 0, 'PUBLISHED', '2026-03-01 00:00:00', '2026-03-20 23:59:59', 3, '王老师', '2026-03-01 09:00:00', '2026-03-01 08:00:00'),
+('计算机2102班班会通知', '计算机2102班将于本周四下午召开主题班会，请全体同学准时参加。', 'TEXT', 'SPECIFIED', 0, 0, 'PUBLISHED', '2026-03-02 00:00:00', '2026-03-06 23:59:59', 1, '张老师', '2026-03-02 10:00:00', '2026-03-02 09:00:00'),
+('暑期实习报名开始', '2026年暑期实习报名工作已开始，请有意向的同学在教务系统中报名，截止日期为4月30日。', 'TEXT', 'ALL', 0, 0, 'PUBLISHED', '2026-03-05 00:00:00', '2026-04-30 23:59:59', 3, '王老师', '2026-03-05 11:00:00', '2026-03-05 10:00:00');
+
+-- Announcement-Class Associations
+INSERT INTO `announcement_class` (`announcement_id`, `class_id`, `class_name`) VALUES
+(3, 1, '计算机2101'),
+(4, 3, '软件2101'),
+(7, 7, 'AI2101'),
+(9, 2, '计算机2102');

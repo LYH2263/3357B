@@ -66,6 +66,7 @@
                         class="bi bi-chat-dots"></i>互动交流</a></li>
             <li><a href="#" class="nav-link" onclick="loadManagePage('news')"><i class="bi bi-newspaper"></i>技术动态</a>
             </li>
+            <li><a href="#" class="nav-link" onclick="loadAnnouncementManage()"><i class="bi bi-megaphone"></i>公告通知</a></li>
             <li><a href="exam-manage.html" class="nav-link"><i class="bi bi-clipboard-check"></i>在线测验</a></li>
         </ul>
         <hr>
@@ -123,6 +124,87 @@
                         <button class="btn btn-light flex-grow-1" data-bs-dismiss="modal">取消</button>
                         <button class="btn btn-danger flex-grow-1" id="confirmDeleteBtn">确定删除</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Announcement Edit Modal -->
+    <div class="modal fade" id="announcementModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="announcementModalTitle">发布公告</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">公告标题 <span class="text-danger">*</span></label>
+                        <input type="text" id="a_title" class="form-control" placeholder="请输入公告标题">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">公告正文 <span class="text-danger">*</span></label>
+                        <textarea id="a_content" class="form-control" rows="6" placeholder="请输入公告正文内容"></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">目标范围</label>
+                            <select id="a_targetType" class="form-select" onchange="toggleClassSelect()">
+                                <option value="ALL">全体学生</option>
+                                <option value="SPECIFIED">指定班级</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">是否置顶</label>
+                            <select id="a_isPinned" class="form-select">
+                                <option value="0">否</option>
+                                <option value="1">是</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3" id="classSelectRow" style="display:none;">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">选择目标班级（可多选）</label>
+                            <div id="a_classCheckboxes" class="border rounded p-3" style="max-height:150px;overflow-y:auto;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">生效时间</label>
+                            <input type="datetime-local" id="a_effectiveTime" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">失效时间</label>
+                            <input type="datetime-local" id="a_expireTime" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">置顶排序（数字越小越靠前）</label>
+                        <input type="number" id="a_pinOrder" class="form-control" value="0" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="saveAnnouncementDraft()">保存草稿</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAndPublishAnnouncement()">保存并发布</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Announcement View Modal -->
+    <div class="modal fade" id="announcementViewModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="viewAnnouncementTitle">公告详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="viewAnnouncementBody">
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">关闭</button>
                 </div>
             </div>
         </div>
@@ -383,6 +465,260 @@
                     api.showToast('删除成功', 'success');
                     modal.hide();
                     refreshTable();
+                } catch (err) { }
+            };
+            modal.show();
+        }
+
+        let announcementData = [];
+        let editingAnnouncementId = null;
+
+        function loadAnnouncementManage() {
+            currentPage = 'announcement';
+            document.getElementById('pageTitle').innerText = '公告通知管理';
+            document.getElementById('actionBtnArea').innerHTML = '<button class="btn btn-primary" onclick="showAddAnnouncementModal()">+ 发布公告</button>';
+
+            document.querySelectorAll('.nav-link').forEach(l => {
+                l.classList.remove('active');
+                if (l.innerText.includes('公告通知')) l.classList.add('active');
+            });
+
+            refreshAnnouncements();
+        }
+
+        async function refreshAnnouncements() {
+            const body = document.getElementById('tableBody');
+            body.innerHTML = '<tr><td colspan="10" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+
+            const head = document.getElementById('tableHead');
+            head.innerHTML = `<tr>
+                <th>标题</th>
+                <th>目标范围</th>
+                <th>置顶</th>
+                <th>状态</th>
+                <th>发布时间</th>
+                <th>有效期</th>
+                <th>创建人</th>
+                <th>操作</th>
+            </tr>`;
+
+            try {
+                await refreshClasses();
+                announcementData = await api.request('/announcement/list');
+                body.innerHTML = announcementData.map((item, idx) => {
+                    const statusBadge = item.status === 'PUBLISHED' ? 'bg-success' : (item.status === 'DRAFT' ? 'bg-secondary' : 'bg-danger');
+                    const statusText = item.status === 'PUBLISHED' ? '已发布' : (item.status === 'DRAFT' ? '草稿' : '已撤回');
+                    const targetText = item.targetType === 'ALL' ? '全体学生' : (item.classList && item.classList.length > 0 ? item.classList.map(c => c.className).join('、') : '-');
+                    const timeRange = (item.effectiveTime ? item.effectiveTime.split('T')[0] : '-') + ' ~ ' + (item.expireTime ? item.expireTime.split('T')[0] : '-');
+
+                    return `<tr>
+                        <td>
+                            ${item.isPinned ? '<i class="bi bi-pin-angle-fill text-danger me-1"></i>' : ''}
+                            <a href="#" onclick="viewAnnouncement(${idx})" class="text-decoration-none fw-bold">${item.title}</a>
+                        </td>
+                        <td><small class="text-muted">${targetText}</small></td>
+                        <td>${item.isPinned ? '<span class="badge bg-danger">置顶</span>' : '<span class="text-muted">-</span>'}</td>
+                        <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                        <td><small>${item.publishedAt ? item.publishedAt.replace('T', ' ') : '-'}</small></td>
+                        <td><small class="text-muted">${timeRange}</small></td>
+                        <td><small>${item.createdByName || '-'}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info me-1" onclick="viewAnnouncement(${idx})">查看</button>
+                            ${item.status !== 'REVOKED' ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="editAnnouncement(${idx})">编辑</button>` : ''}
+                            ${item.status === 'DRAFT' ? `<button class="btn btn-sm btn-outline-success me-1" onclick="publishAnnouncement(${idx})">发布</button>` : ''}
+                            ${item.status === 'PUBLISHED' ? `<button class="btn btn-sm btn-outline-warning me-1" onclick="revokeAnnouncement(${idx})">撤回</button>` : ''}
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteAnnouncement(${idx})">删除</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (err) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">加载失败</td></tr>';
+            }
+        }
+
+        function showAddAnnouncementModal() {
+            editingAnnouncementId = null;
+            document.getElementById('announcementModalTitle').innerText = '发布公告';
+            document.getElementById('a_title').value = '';
+            document.getElementById('a_content').value = '';
+            document.getElementById('a_targetType').value = 'ALL';
+            document.getElementById('a_isPinned').value = '0';
+            document.getElementById('a_pinOrder').value = '0';
+            document.getElementById('a_effectiveTime').value = '';
+            document.getElementById('a_expireTime').value = '';
+            toggleClassSelect();
+            renderClassCheckboxes([]);
+            const modal = new bootstrap.Modal(document.getElementById('announcementModal'));
+            modal.show();
+        }
+
+        function editAnnouncement(idx) {
+            const item = announcementData[idx];
+            editingAnnouncementId = item.announcementId;
+            document.getElementById('announcementModalTitle').innerText = '编辑公告';
+            document.getElementById('a_title').value = item.title;
+            document.getElementById('a_content').value = item.content;
+            document.getElementById('a_targetType').value = item.targetType;
+            document.getElementById('a_isPinned').value = item.isPinned;
+            document.getElementById('a_pinOrder').value = item.pinOrder;
+            document.getElementById('a_effectiveTime').value = item.effectiveTime ? item.effectiveTime.substring(0, 16) : '';
+            document.getElementById('a_expireTime').value = item.expireTime ? item.expireTime.substring(0, 16) : '';
+            toggleClassSelect();
+            const selectedIds = item.classList ? item.classList.map(c => c.classId) : [];
+            renderClassCheckboxes(selectedIds);
+            const modal = new bootstrap.Modal(document.getElementById('announcementModal'));
+            modal.show();
+        }
+
+        function viewAnnouncement(idx) {
+            const item = announcementData[idx];
+            document.getElementById('viewAnnouncementTitle').innerText = item.title;
+            const statusBadge = item.status === 'PUBLISHED' ? 'bg-success' : (item.status === 'DRAFT' ? 'bg-secondary' : 'bg-danger');
+            const statusText = item.status === 'PUBLISHED' ? '已发布' : (item.status === 'DRAFT' ? '草稿' : '已撤回');
+            const targetText = item.targetType === 'ALL' ? '全体学生' : (item.classList && item.classList.length > 0 ? item.classList.map(c => c.className).join('、') : '-');
+
+            document.getElementById('viewAnnouncementBody').innerHTML = `
+                <div class="mb-3">
+                    <span class="badge ${statusBadge} me-2">${statusText}</span>
+                    ${item.isPinned ? '<span class="badge bg-danger me-2">置顶</span>' : ''}
+                    <small class="text-muted">发布人：${item.createdByName || '-'}</small>
+                </div>
+                <div class="mb-3 row small">
+                    <div class="col-md-6"><span class="text-muted">目标范围：</span>${targetText}</div>
+                    <div class="col-md-6"><span class="text-muted">发布时间：</span>${item.publishedAt ? item.publishedAt.replace('T', ' ') : '-'}</div>
+                </div>
+                <div class="mb-3 row small">
+                    <div class="col-md-6"><span class="text-muted">生效时间：</span>${item.effectiveTime ? item.effectiveTime.replace('T', ' ') : '-'}</div>
+                    <div class="col-md-6"><span class="text-muted">失效时间：</span>${item.expireTime ? item.expireTime.replace('T', ' ') : '-'}</div>
+                </div>
+                <hr>
+                <div style="white-space:pre-wrap;line-height:1.8;">${item.content || ''}</div>
+            `;
+            const modal = new bootstrap.Modal(document.getElementById('announcementViewModal'));
+            modal.show();
+        }
+
+        function toggleClassSelect() {
+            const targetType = document.getElementById('a_targetType').value;
+            document.getElementById('classSelectRow').style.display = targetType === 'SPECIFIED' ? 'flex' : 'none';
+            if (targetType === 'SPECIFIED') {
+                renderClassCheckboxes([]);
+            }
+        }
+
+        function renderClassCheckboxes(selectedIds) {
+            const container = document.getElementById('a_classCheckboxes');
+            container.innerHTML = classesList.map(c => `
+                <div class="form-check form-check-inline me-3 mb-2">
+                    <input class="form-check-input" type="checkbox" value="${c.cid}" id="class_${c.cid}" ${selectedIds.includes(c.cid) ? 'checked' : ''}>
+                    <label class="form-check-label" for="class_${c.cid}">${c.cname}</label>
+                </div>
+            `).join('');
+        }
+
+        function getSelectedClassIds() {
+            const checkboxes = document.querySelectorAll('#a_classCheckboxes input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => parseInt(cb.value));
+        }
+
+        function collectAnnouncementData() {
+            const title = document.getElementById('a_title').value.trim();
+            const content = document.getElementById('a_content').value.trim();
+            if (!title) { api.showToast('请输入公告标题', 'danger'); return null; }
+            if (!content) { api.showToast('请输入公告正文', 'danger'); return null; }
+
+            const targetType = document.getElementById('a_targetType').value;
+            let classIds = [];
+            if (targetType === 'SPECIFIED') {
+                classIds = getSelectedClassIds();
+                if (classIds.length === 0) { api.showToast('请至少选择一个目标班级', 'danger'); return null; }
+            }
+
+            const effectiveTime = document.getElementById('a_effectiveTime').value;
+            const expireTime = document.getElementById('a_expireTime').value;
+            if (effectiveTime && expireTime && new Date(effectiveTime) > new Date(expireTime)) {
+                api.showToast('生效时间不能晚于失效时间', 'danger');
+                return null;
+            }
+
+            return {
+                announcementId: editingAnnouncementId,
+                title: title,
+                content: content,
+                contentType: 'TEXT',
+                targetType: targetType,
+                isPinned: parseInt(document.getElementById('a_isPinned').value),
+                pinOrder: parseInt(document.getElementById('a_pinOrder').value) || 0,
+                effectiveTime: effectiveTime || null,
+                expireTime: expireTime || null,
+                classIds: classIds,
+                createdBy: session.user.tid,
+                createdByName: session.user.tname,
+                status: 'DRAFT'
+            };
+        }
+
+        async function saveAnnouncementDraft() {
+            const data = collectAnnouncementData();
+            if (!data) return;
+            data.status = 'DRAFT';
+            try {
+                await api.request('/announcement/save', { method: 'POST', body: JSON.stringify(data) });
+                api.showToast('草稿保存成功', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('announcementModal')).hide();
+                refreshAnnouncements();
+            } catch (err) { }
+        }
+
+        async function saveAndPublishAnnouncement() {
+            const data = collectAnnouncementData();
+            if (!data) return;
+            data.status = 'PUBLISHED';
+            try {
+                const result = await api.request('/announcement/save', { method: 'POST', body: JSON.stringify(data) });
+                if (result && data.announcementId === null) {
+                    const list = await api.request('/announcement/list');
+                    const latest = list.find(a => a.title === data.title && a.status === 'DRAFT');
+                    if (latest) {
+                        await api.request(`/announcement/publish/${latest.announcementId}`, { method: 'POST' });
+                    }
+                } else if (data.announcementId !== null && data.status === 'PUBLISHED') {
+                    await api.request(`/announcement/publish/${data.announcementId}`, { method: 'POST' });
+                }
+                api.showToast('公告发布成功', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('announcementModal')).hide();
+                refreshAnnouncements();
+            } catch (err) { }
+        }
+
+        async function publishAnnouncement(idx) {
+            const item = announcementData[idx];
+            try {
+                await api.request(`/announcement/publish/${item.announcementId}`, { method: 'POST' });
+                api.showToast('发布成功', 'success');
+                refreshAnnouncements();
+            } catch (err) { }
+        }
+
+        async function revokeAnnouncement(idx) {
+            const item = announcementData[idx];
+            if (!confirm('确认撤回该公告？撤回后学生将无法看到。')) return;
+            try {
+                await api.request(`/announcement/revoke/${item.announcementId}`, { method: 'POST' });
+                api.showToast('已撤回', 'success');
+                refreshAnnouncements();
+            } catch (err) { }
+        }
+
+        async function deleteAnnouncement(idx) {
+            const item = announcementData[idx];
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            document.getElementById('confirmDeleteBtn').onclick = async () => {
+                try {
+                    await api.request(`/announcement/delete/${item.announcementId}`, { method: 'DELETE' });
+                    api.showToast('删除成功', 'success');
+                    modal.hide();
+                    refreshAnnouncements();
                 } catch (err) { }
             };
             modal.show();

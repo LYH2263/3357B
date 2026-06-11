@@ -29,9 +29,30 @@
                     <li class="nav-link px-3" role="button" onclick="showSection('teaching')">教学内容</li>
                     <li class="nav-link px-3" role="button" onclick="showSection('experiment')">实验内容</li>
                     <li class="nav-link px-3" role="button" onclick="showSection('interact')">互动交流</li>
+                    <li class="nav-link px-3" role="button" onclick="showNotificationCenter()">通知中心</li>
                     <li class="nav-link px-3" role="button" onclick="location.href='exam-student.html'">在线测验</li>
                 </ul>
                 <div class="d-flex align-items-center">
+                    <div class="dropdown me-3">
+                        <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="refreshNotificationPanel()">
+                            <i class="bi bi-bell"></i>
+                            <span id="unreadBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">0</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end shadow p-0" style="width:400px;max-height:500px;overflow:hidden;">
+                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                                <h6 class="fw-bold mb-0">公告通知</h6>
+                                <button class="btn btn-sm btn-outline-primary" onclick="markAllAsRead()">全部已读</button>
+                            </div>
+                            <div id="notificationList" style="max-height:400px;overflow-y:auto;">
+                                <div class="text-center py-5 text-muted">
+                                    <div class="spinner-border text-primary spinner-border-sm"></div>
+                                </div>
+                            </div>
+                            <div class="border-top p-2 text-center bg-light">
+                                <a href="#" class="text-decoration-none small" onclick="showNotificationCenter();return false;">查看全部通知</a>
+                            </div>
+                        </div>
+                    </div>
                     <span id="userInfo" class="me-3 text-muted small"></span>
                     <button class="btn btn-outline-danger btn-sm" onclick="api.clearSession()">登出</button>
                 </div>
@@ -122,6 +143,28 @@
             </div>
         </div>
 
+        <!-- Notification Center Section -->
+        <div id="notification-section" class="section d-none">
+            <div class="card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">公告通知中心</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="markAllAsRead()">
+                            <i class="bi bi-check2-all"></i> 全部标记已读
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadNotifications()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </div>
+                </div>
+                <div id="notificationCenterList" class="list-group gap-2">
+                    <div class="text-center py-5 text-muted">
+                        <div class="spinner-border text-primary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Interact Section -->
         <div id="interact-section" class="section d-none">
             <div class="row">
@@ -145,6 +188,23 @@
                             <!-- JS loaded -->
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Announcement Detail Modal -->
+    <div class="modal fade" id="announcementDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="detailAnnouncementTitle">公告详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detailAnnouncementBody">
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">关闭</button>
                 </div>
             </div>
         </div>
@@ -298,7 +358,201 @@
             } catch (err) { }
         });
 
-        loadNews(); // Init
+        let currentNotifications = [];
+
+        function showNotificationCenter() {
+            document.querySelectorAll('.section').forEach(s => s.classList.add('d-none'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById('notification-section').classList.remove('d-none');
+            document.querySelectorAll('.nav-link').forEach(l => {
+                if (l.innerText === '通知中心') l.classList.add('active');
+            });
+            loadNotifications();
+        }
+
+        async function refreshUnreadCount() {
+            try {
+                const res = await api.request(`/announcement/student/unread-count?studentId=${session.user.uid}&classId=${session.user.classId}`);
+                const badge = document.getElementById('unreadBadge');
+                if (res.unreadCount > 0) {
+                    badge.style.display = 'inline-block';
+                    badge.innerText = res.unreadCount > 99 ? '99+' : res.unreadCount;
+                } else {
+                    badge.style.display = 'none';
+                }
+                return res.unreadCount;
+            } catch (err) {
+                return 0;
+            }
+        }
+
+        async function refreshNotificationPanel() {
+            const list = document.getElementById('notificationList');
+            try {
+                currentNotifications = await api.request(`/announcement/student/list?studentId=${session.user.uid}&classId=${session.user.classId}`);
+                refreshUnreadCount();
+
+                if (currentNotifications.length === 0) {
+                    list.innerHTML = '<div class="text-center py-5 text-muted small">暂无公告通知</div>';
+                    return;
+                }
+
+                const top5 = currentNotifications.slice(0, 5);
+                list.innerHTML = top5.map((item, idx) => renderNotificationItem(item, idx, true)).join('');
+            } catch (err) {
+                list.innerHTML = '<div class="text-center py-5 text-muted small">加载失败</div>';
+            }
+        }
+
+        async function loadNotifications() {
+            const list = document.getElementById('notificationCenterList');
+            list.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border text-primary"></div></div>';
+            try {
+                currentNotifications = await api.request(`/announcement/student/list?studentId=${session.user.uid}&classId=${session.user.classId}`);
+                refreshUnreadCount();
+
+                if (currentNotifications.length === 0) {
+                    list.innerHTML = '<div class="text-center py-5 text-muted">暂无公告通知</div>';
+                    return;
+                }
+
+                list.innerHTML = currentNotifications.map((item, idx) => renderNotificationItem(item, idx, false)).join('');
+            } catch (err) {
+                list.innerHTML = '<div class="text-center py-5 text-muted">加载失败，请重试</div>';
+            }
+        }
+
+        function renderNotificationItem(item, idx, compact) {
+            const unreadDot = !item.isRead ? '<span class="badge bg-danger me-2" style="width:8px;height:8px;padding:0;border-radius:50%;display:inline-block;"></span>' : '';
+            const pinIcon = item.isPinned ? '<i class="bi bi-pin-angle-fill text-danger me-1"></i>' : '';
+            const targetText = item.targetType === 'ALL' ? '全体学生' : (item.classList && item.classList.length > 0 ? item.classList.map(c => c.className).join('、') : '');
+            const time = item.publishedAt ? item.publishedAt.replace('T', ' ') : '-';
+
+            if (compact) {
+                return `
+                    <div class="list-group-item list-group-item-action border-0 px-3 py-2 ${!item.isRead ? 'bg-light' : ''}" onclick="openAnnouncementDetail(${idx})" style="cursor:pointer;">
+                        <div class="d-flex align-items-start">
+                            ${unreadDot}
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <h6 class="mb-0 fw-bold small">${pinIcon}${item.title}</h6>
+                                    <small class="text-muted ms-2">${time.split(' ')[0]}</small>
+                                </div>
+                                <p class="mb-0 small text-muted text-truncate">${item.content}</p>
+                                <small class="text-muted"><i class="bi bi-person"></i> ${item.createdByName || '-'} · ${targetText}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="list-group-item border rounded p-4 ${!item.isRead ? 'border-start border-4 border-primary bg-light bg-opacity-50' : ''}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            ${pinIcon}<span class="fw-bold fs-5">${item.title}</span>
+                            ${item.isPinned ? '<span class="badge bg-danger ms-2">置顶</span>' : ''}
+                            ${!item.isRead ? '<span class="badge bg-primary ms-2">未读</span>' : ''}
+                        </div>
+                        <small class="text-muted">${time}</small>
+                    </div>
+                    <div class="mb-2 small text-muted">
+                        <i class="bi bi-person"></i> 发布人：${item.createdByName || '-'}
+                        <span class="mx-2">|</span>
+                        <i class="bi bi-people"></i> 目标：${targetText}
+                    </div>
+                    <p class="mb-3" style="white-space:pre-wrap;line-height:1.8;">${item.content}</p>
+                    <div class="d-flex justify-content-end">
+                        ${!item.isRead ? `<button class="btn btn-sm btn-outline-primary" onclick="markSingleRead(${idx}, event)">标记已读</button>` : ''}
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="openAnnouncementDetail(${idx})">查看详情</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function openAnnouncementDetail(idx) {
+            const item = currentNotifications[idx];
+            if (!item) return;
+
+            if (!item.isRead) {
+                try {
+                    await api.request('/announcement/student/mark-read', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            announcementId: item.announcementId,
+                            studentId: session.user.uid
+                        })
+                    });
+                    item.isRead = true;
+                    refreshUnreadCount();
+                } catch (err) { }
+            }
+
+            const targetText = item.targetType === 'ALL' ? '全体学生' : (item.classList && item.classList.length > 0 ? item.classList.map(c => c.className).join('、') : '');
+            document.getElementById('detailAnnouncementTitle').innerText = item.title;
+            document.getElementById('detailAnnouncementBody').innerHTML = `
+                <div class="mb-3">
+                    ${item.isPinned ? '<span class="badge bg-danger me-2">置顶</span>' : ''}
+                    <small class="text-muted">发布人：${item.createdByName || '-'}</small>
+                </div>
+                <div class="mb-3 row small">
+                    <div class="col-md-6"><span class="text-muted">目标范围：</span>${targetText}</div>
+                    <div class="col-md-6"><span class="text-muted">发布时间：</span>${item.publishedAt ? item.publishedAt.replace('T', ' ') : '-'}</div>
+                </div>
+                <div class="mb-3 row small">
+                    <div class="col-md-6"><span class="text-muted">生效时间：</span>${item.effectiveTime ? item.effectiveTime.replace('T', ' ') : '-'}</div>
+                    <div class="col-md-6"><span class="text-muted">失效时间：</span>${item.expireTime ? item.expireTime.replace('T', ' ') : '长期有效'}</div>
+                </div>
+                <hr>
+                <div style="white-space:pre-wrap;line-height:1.8;">${item.content || ''}</div>
+            `;
+
+            try { bootstrap.Dropdown.getInstance(document.querySelector('[data-bs-toggle="dropdown"]')).hide(); } catch (e) { }
+
+            const modal = new bootstrap.Modal(document.getElementById('announcementDetailModal'));
+            modal.show();
+
+            loadNotifications();
+        }
+
+        async function markSingleRead(idx, event) {
+            event.stopPropagation();
+            const item = currentNotifications[idx];
+            if (!item || item.isRead) return;
+            try {
+                await api.request('/announcement/student/mark-read', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        announcementId: item.announcementId,
+                        studentId: session.user.uid
+                    })
+                });
+                item.isRead = true;
+                api.showToast('已标记为已读', 'success');
+                refreshUnreadCount();
+                loadNotifications();
+            } catch (err) { }
+        }
+
+        async function markAllAsRead() {
+            try {
+                await api.request('/announcement/student/mark-all-read', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        studentId: session.user.uid,
+                        classId: session.user.classId
+                    })
+                });
+                api.showToast('已全部标记为已读', 'success');
+                currentNotifications.forEach(n => n.isRead = true);
+                refreshUnreadCount();
+                loadNotifications();
+                refreshNotificationPanel();
+            } catch (err) { }
+        }
+
+        loadNews();
+        refreshUnreadCount();
     </script>
 </body>
 

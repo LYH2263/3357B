@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线测验管理 - 教师端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+        .main-content { margin-left: 250px; padding: 2rem; }
+        .nav-link { border-radius: 0.5rem; margin: 0.2rem 0; padding: 0.8rem 1rem; color: #333; }
+        .nav-link:hover, .nav-link.active { background: #f0f4ff; color: var(--primary-color); }
+        .question-card { border: 1px solid #e0e0e0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; background: #fafbfc; }
+        .question-card:hover { border-color: var(--primary-color); box-shadow: 0 2px 8px rgba(13,110,253,0.1); }
+        .option-item { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 500; }
+        .status-draft { background: #e7f5ff; color: #1971c2; }
+        .status-published { background: #d3f9d8; color: #2b8a3e; }
+        .status-closed { background: #ffe3e3; color: #c92a2a; }
+        .tab-btn { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-color: var(--primary-color); color: var(--primary-color); font-weight: 600; }
+        .score-bar { height: 8px; border-radius: 4px; background: #e9ecef; overflow: hidden; }
+        .score-bar-fill { height: 100%; background: linear-gradient(90deg, #40c057, #51cf66); }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column p-3 bg-light">
+        <a href="teacher.html" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none p-2">
+            <span class="fs-4 fw-bold text-primary">管理后台</span>
+        </a>
+        <hr>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-people"></i>学生管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-book"></i>课程介绍</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-layers"></i>班级管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-person-badge"></i>教师管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-file-earmark-text"></i>教学内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-vial"></i>实验内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-chat-dots"></i>互动交流</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-newspaper"></i>技术动态</a></li>
+            <li><a href="#" class="nav-link active"><i class="bi bi-clipboard-check"></i>在线测验</a></li>
+        </ul>
+        <hr>
+        <div class="p-2">
+            <button class="btn btn-outline-danger w-100" onclick="api.clearSession()">登出</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold">在线测验管理</h4>
+            <div id="topActions">
+                <button class="btn btn-primary" onclick="showExamEditor()"><i class="bi bi-plus-lg"></i> 新建试卷</button>
+            </div>
+        </div>
+
+        <div id="examListView">
+            <div class="card p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>试卷标题</th>
+                                <th>关联课程</th>
+                                <th>时长</th>
+                                <th>总分/及格</th>
+                                <th>状态</th>
+                                <th>题目数</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="examTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="examEditorView" class="d-none">
+            <div class="d-flex align-items-center mb-4">
+                <button class="btn btn-outline-secondary me-3" onclick="backToList()"><i class="bi bi-arrow-left"></i> 返回列表</button>
+                <h5 class="fw-bold mb-0" id="editorTitle">新建试卷</h5>
+            </div>
+
+            <div class="card p-4 mb-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-card-text"></i> 基本信息</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">试卷标题 *</label>
+                        <input type="text" id="examTitle" class="form-control" placeholder="请输入试卷标题">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">关联课程</label>
+                        <select id="examCourse" class="form-select">
+                            <option value="">请选择关联课程</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">限时(分钟) *</label>
+                        <input type="number" id="examDuration" class="form-control" value="60" min="1">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">及格线(分) *</label>
+                        <input type="number" id="examPassScore" class="form-control" value="60" min="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">最多作答次数</label>
+                        <input type="number" id="examMaxAttempts" class="form-control" value="1" min="1">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">多选题判分规则</label>
+                        <select id="examScoringRule" class="form-select">
+                            <option value="ALL_OR_NOTHING">全对才得分</option>
+                            <option value="PROPORTIONAL">按比例得分(选对部分给部分分)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">开始时间</label>
+                        <input type="datetime-local" id="examStartTime" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">截止时间</label>
+                        <input type="datetime-local" id="examEndTime" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-list-check"></i> 题目列表</h6>
+                    <div>
+                        <button class="btn btn-outline-success btn-sm me-2" onclick="addQuestion('SINGLE')"><i class="bi bi-circle"></i> 添加单选题</button>
+                        <button class="btn btn-outline-info btn-sm" onclick="addQuestion('MULTIPLE')"><i class="bi bi-check2-square"></i> 添加多选题</button>
+                    </div>
+                </div>
+                <div id="questionsList"></div>
+                <div class="text-muted small mt-2" id="totalScoreDisplay">当前总分: 0 分</div>
+            </div>
+
+            <div class="d-flex gap-3">
+                <button class="btn btn-secondary" onclick="backToList()">取消</button>
+                <button class="btn btn-outline-primary" onclick="saveExam(false)"><i class="bi bi-save"></i> 保存为草稿</button>
+                <button class="btn btn-primary" onclick="saveExam(true)"><i class="bi bi-send"></i> 保存并发布</button>
+            </div>
+        </div>
+
+        <div id="statsView" class="d-none">
+            <div class="d-flex align-items-center mb-4">
+                <button class="btn btn-outline-secondary me-3" onclick="backToList()"><i class="bi bi-arrow-left"></i> 返回列表</button>
+                <h5 class="fw-bold mb-0" id="statsTitle">成绩统计分析</h5>
+            </div>
+            <div id="statsContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'teacher') location.href = 'index.html';
+
+        let currentView = 'list';
+        let examList = [];
+        let editingExam = null;
+        let questionsData = [];
+        let courseList = [];
+
+        function showView(view) {
+            currentView = view;
+            document.getElementById('examListView').classList.toggle('d-none', view !== 'list');
+            document.getElementById('examEditorView').classList.toggle('d-none', view !== 'editor');
+            document.getElementById('statsView').classList.toggle('d-none', view !== 'stats');
+            document.getElementById('topActions').style.display = view === 'list' ? 'block' : 'none';
+        }
+
+        function backToList() {
+            showView('list');
+            loadExamList();
+        }
+
+        async function loadCourses() {
+            try {
+                courseList = await api.request('/test/list');
+                const sel = document.getElementById('examCourse');
+                sel.innerHTML = '<option value="">请选择关联课程</option>' +
+                    courseList.map(c => `<option value="${c.tid}">${c.ttitle}</option>`).join('');
+            } catch (e) {}
+        }
+
+        async function loadExamList() {
+            const body = document.getElementById('examTableBody');
+            body.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+            try {
+                examList = await api.request('/exam/list');
+                examList.sort((a, b) => (b.examId || 0) - (a.examId || 0));
+                if (examList.length === 0) {
+                    body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">暂无试卷，点击右上角新建</td></tr>';
+                    return;
+                }
+                body.innerHTML = examList.map(e => {
+                    const statusClass = e.status === 'DRAFT' ? 'status-draft' : e.status === 'PUBLISHED' ? 'status-published' : 'status-closed';
+                    const statusText = e.status === 'DRAFT' ? '草稿' : e.status === 'PUBLISHED' ? '已发布' : '已截止';
+                    return `<tr>
+                        <td class="fw-bold">${e.examTitle || '-'}</td>
+                        <td class="small text-muted">${e.courseName || '-'}</td>
+                        <td>${e.durationMinutes}分钟</td>
+                        <td>${e.totalScore}/${e.passScore}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td><span class="badge bg-light text-dark">${e.totalScore ? Math.round(parseFloat(e.totalScore) / 10) : 0}题</span></td>
+                        <td class="small text-muted">${(e.createdAt || '').split('T')[0]}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editExam(${e.examId})">编辑</button>
+                            ${e.status === 'DRAFT' ? `<button class="btn btn-sm btn-success" onclick="publishExam(${e.examId})">发布</button>` : ''}
+                            ${e.status === 'PUBLISHED' ? `<button class="btn btn-sm btn-warning" onclick="withdrawExam(${e.examId})">撤回</button>` : ''}
+                            <button class="btn btn-sm btn-outline-info" onclick="viewStats(${e.examId})">统计</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteExam(${e.examId})">删除</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-danger">加载失败</td></tr>';
+            }
+        }
+
+        function showExamEditor() {
+            editingExam = null;
+            questionsData = [];
+            document.getElementById('editorTitle').innerText = '新建试卷';
+            document.getElementById('examTitle').value = '';
+            document.getElementById('examCourse').value = '';
+            document.getElementById('examDuration').value = 60;
+            document.getElementById('examPassScore').value = 60;
+            document.getElementById('examMaxAttempts').value = 1;
+            document.getElementById('examScoringRule').value = 'ALL_OR_NOTHING';
+            document.getElementById('examStartTime').value = '';
+            document.getElementById('examEndTime').value = '';
+            renderQuestions();
+            showView('editor');
+        }
+
+        async function editExam(id) {
+            try {
+                const exam = await api.request('/exam/detail/' + id);
+                editingExam = exam;
+                document.getElementById('editorTitle').innerText = '编辑试卷 - ' + exam.examTitle;
+                document.getElementById('examTitle').value = exam.examTitle || '';
+                document.getElementById('examCourse').value = exam.courseId || '';
+                document.getElementById('examDuration').value = exam.durationMinutes || 60;
+                document.getElementById('examPassScore').value = exam.passScore || 60;
+                document.getElementById('examMaxAttempts').value = exam.maxAttempts || 1;
+                document.getElementById('examScoringRule').value = exam.scoringRule || 'ALL_OR_NOTHING';
+                document.getElementById('examStartTime').value = exam.startTime ? exam.startTime.slice(0, 16) : '';
+                document.getElementById('examEndTime').value = exam.endTime ? exam.endTime.slice(0, 16) : '';
+                questionsData = (exam.questions || []).map(q => ({
+                    questionId: q.questionId,
+                    questionType: q.questionType,
+                    questionText: q.questionText,
+                    score: q.score,
+                    analysis: q.analysis,
+                    options: (q.options || []).map(o => ({
+                        optionId: o.optionId,
+                        optionLabel: o.optionLabel,
+                        optionText: o.optionText,
+                        isCorrect: o.isCorrect
+                    }))
+                }));
+                renderQuestions();
+                showView('editor');
+            } catch (e) {
+                api.showToast('加载失败', 'danger');
+            }
+        }
+
+        function addQuestion(type) {
+            const labels = ['A', 'B', 'C', 'D'];
+            questionsData.push({
+                questionType: type,
+                questionText: '',
+                score: 10,
+                analysis: '',
+                options: labels.map(l => ({ optionLabel: l, optionText: '', isCorrect: 0 }))
+            });
+            renderQuestions();
+        }
+
+        function removeQuestion(idx) {
+            if (!confirm('确定删除此题吗？')) return;
+            questionsData.splice(idx, 1);
+            renderQuestions();
+        }
+
+        function moveQuestion(idx, dir) {
+            const target = idx + dir;
+            if (target < 0 || target >= questionsData.length) return;
+            [questionsData[idx], questionsData[target]] = [questionsData[target], questionsData[idx]];
+            renderQuestions();
+        }
+
+        function addOption(qIdx) {
+            const q = questionsData[qIdx];
+            const nextLabel = String.fromCharCode(65 + q.options.length);
+            q.options.push({ optionLabel: nextLabel, optionText: '', isCorrect: 0 });
+            renderQuestions();
+        }
+
+        function removeOption(qIdx, oIdx) {
+            questionsData[qIdx].options.splice(oIdx, 1);
+            questionsData[qIdx].options.forEach((o, i) => o.optionLabel = String.fromCharCode(65 + i));
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsList');
+            if (questionsData.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted">暂无题目，请点击上方按钮添加</div>';
+                document.getElementById('totalScoreDisplay').innerText = '当前总分: 0 分';
+                return;
+            }
+            container.innerHTML = questionsData.map((q, qi) => {
+                const typeLabel = q.questionType === 'SINGLE' ? '单选题' : '多选题';
+                const typeColor = q.questionType === 'SINGLE' ? 'bg-success' : 'bg-info';
+                return `<div class="question-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge ${typeColor}">${typeLabel}</span>
+                            <span class="fw-bold">第 ${qi + 1} 题</span>
+                            <div class="input-group" style="width: 120px;">
+                                <input type="number" class="form-control form-control-sm" value="${q.score}" onchange="questionsData[${qi}].score=parseFloat(this.value)||0;renderQuestions();" min="0" step="0.5">
+                                <span class="input-group-text">分</span>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="moveQuestion(${qi},-1)" ${qi === 0 ? 'disabled' : ''}><i class="bi bi-chevron-up"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="moveQuestion(${qi},1)" ${qi === questionsData.length - 1 ? 'disabled' : ''}><i class="bi bi-chevron-down"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeQuestion(${qi})"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <textarea class="form-control" rows="2" placeholder="请输入题干内容..." onchange="questionsData[${qi}].questionText=this.value">${q.questionText || ''}</textarea>
+                    </div>
+                    <div class="ms-3">
+                        ${q.options.map((o, oi) => `<div class="option-item">
+                            <div class="form-check" style="min-width:32px;">
+                                <input class="form-check-input" type="${q.questionType === 'SINGLE' ? 'radio' : 'checkbox'}" 
+                                    name="q${qi}_correct" ${o.isCorrect == 1 ? 'checked' : ''}
+                                    onchange="toggleCorrect(${qi},${oi})">
+                            </div>
+                            <span class="fw-bold" style="width:24px;">${o.optionLabel}.</span>
+                            <input type="text" class="form-control form-control-sm" placeholder="选项内容" value="${o.optionText || ''}"
+                                onchange="questionsData[${qi}].options[${oi}].optionText=this.value">
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeOption(${qi},${oi})" ${q.options.length <= 2 ? 'disabled' : ''}><i class="bi bi-x"></i></button>
+                        </div>`).join('')}
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="addOption(${qi})"><i class="bi bi-plus"></i> 添加选项</button>
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label small text-muted">题目解析（可选，提交后学生可见）</label>
+                        <textarea class="form-control form-control-sm" rows="1" placeholder="输入题目解析..." onchange="questionsData[${qi}].analysis=this.value">${q.analysis || ''}</textarea>
+                    </div>
+                </div>`;
+            }).join('');
+            const total = questionsData.reduce((s, q) => s + (parseFloat(q.score) || 0), 0);
+            document.getElementById('totalScoreDisplay').innerText = '当前总分: ' + total.toFixed(2) + ' 分';
+        }
+
+        function toggleCorrect(qi, oi) {
+            const q = questionsData[qi];
+            if (q.questionType === 'SINGLE') {
+                q.options.forEach((o, i) => o.isCorrect = i === oi ? 1 : 0);
+            } else {
+                q.options[oi].isCorrect = q.options[oi].isCorrect == 1 ? 0 : 1;
+            }
+            renderQuestions();
+        }
+
+        async function saveExam(publish) {
+            const title = document.getElementById('examTitle').value.trim();
+            if (!title) { api.showToast('请输入试卷标题', 'danger'); return; }
+            const duration = parseInt(document.getElementById('examDuration').value);
+            if (!duration || duration <= 0) { api.showToast('请输入有效的限时', 'danger'); return; }
+            if (questionsData.length === 0) { api.showToast('请至少添加一道题目', 'danger'); return; }
+
+            for (let i = 0; i < questionsData.length; i++) {
+                const q = questionsData[i];
+                if (!q.questionText.trim()) { api.showToast(`第${i + 1}题题干不能为空`, 'danger'); return; }
+                const hasCorrect = q.options.some(o => o.isCorrect == 1);
+                if (!hasCorrect) { api.showToast(`第${i + 1}题请设置正确答案`, 'danger'); return; }
+                const hasEmpty = q.options.some(o => !o.optionText.trim());
+                if (hasEmpty) { api.showToast(`第${i + 1}题存在空选项`, 'danger'); return; }
+            }
+
+            const courseId = document.getElementById('examCourse').value;
+            const courseName = courseId ? (courseList.find(c => c.tid == courseId)?.ttitle || '') : '';
+
+            const examData = {
+                examId: editingExam?.examId,
+                examTitle: title,
+                courseId: courseId || null,
+                courseName: courseName,
+                durationMinutes: duration,
+                passScore: parseFloat(document.getElementById('examPassScore').value) || 60,
+                maxAttempts: parseInt(document.getElementById('examMaxAttempts').value) || 1,
+                scoringRule: document.getElementById('examScoringRule').value,
+                startTime: document.getElementById('examStartTime').value || null,
+                endTime: document.getElementById('examEndTime').value || null,
+                createdBy: session.user.tid,
+                createdByName: session.user.tname,
+                status: publish ? 'PUBLISHED' : (editingExam?.status || 'DRAFT'),
+                questions: questionsData
+            };
+
+            try {
+                const res = await api.request('/exam/save', { method: 'POST', body: JSON.stringify(examData) });
+                if (!res.success) { api.showToast(res.message || '保存失败', 'danger'); return; }
+
+                if (publish && res.examId) {
+                    const pubRes = await api.request('/exam/publish/' + res.examId, { method: 'POST' });
+                    if (!pubRes.success) { api.showToast(pubRes.message || '发布失败', 'warning'); return; }
+                    api.showToast('保存并发布成功', 'success');
+                } else {
+                    api.showToast('保存成功', 'success');
+                }
+                backToList();
+            } catch (e) {
+                api.showToast('保存失败', 'danger');
+            }
+        }
+
+        async function publishExam(id) {
+            if (!confirm('确定发布此试卷吗？发布后学生即可作答。')) return;
+            try {
+                const res = await api.request('/exam/publish/' + id, { method: 'POST' });
+                if (res.success) {
+                    api.showToast('发布成功', 'success');
+                    loadExamList();
+                } else {
+                    api.showToast(res.message || '发布失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('发布失败', 'danger');
+            }
+        }
+
+        async function withdrawExam(id) {
+            if (!confirm('确定撤回此试卷吗？撤回后学生无法作答。')) return;
+            try {
+                const res = await api.request('/exam/withdraw/' + id, { method: 'POST' });
+                if (res.success) {
+                    api.showToast('已撤回草稿', 'success');
+                    loadExamList();
+                } else {
+                    api.showToast(res.message || '撤回失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('撤回失败', 'danger');
+            }
+        }
+
+        async function deleteExam(id) {
+            if (!confirm('确定删除此试卷吗？将同时删除所有题目和成绩记录！')) return;
+            try {
+                await api.request('/exam/delete/' + id, { method: 'DELETE' });
+                api.showToast('删除成功', 'success');
+                loadExamList();
+            } catch (e) {
+                api.showToast('删除失败', 'danger');
+            }
+        }
+
+        async function viewStats(id) {
+            document.getElementById('statsContent').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+            showView('stats');
+            try {
+                const stats = await api.request('/exam/statistics/' + id);
+                const attempts = await api.request('/exam/attempts/' + id);
+                document.getElementById('statsTitle').innerText = '成绩统计 - ' + stats.exam.examTitle;
+
+                document.getElementById('statsContent').innerHTML = `
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card p-3 text-center">
+                                <div class="text-muted small">提交人数</div>
+                                <div class="fs-3 fw-bold text-primary">${stats.totalSubmissions}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 text-center">
+                                <div class="text-muted small">平均分</div>
+                                <div class="fs-3 fw-bold text-success">${stats.avgScore}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 text-center">
+                                <div class="text-muted small">及格人数</div>
+                                <div class="fs-3 fw-bold text-info">${stats.passCount}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 text-center">
+                                <div class="text-muted small">及格率</div>
+                                <div class="fs-3 fw-bold ${stats.passRate >= 60 ? 'text-success' : 'text-warning'}">${stats.passRate.toFixed(2)}%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-bar-chart"></i> 每题正确率分析</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr><th>#</th><th>题目</th><th>类型</th><th>分值</th><th>正确/总数</th><th>正确率</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${stats.questionStats.map((q, i) => `<tr>
+                                        <td>${i + 1}</td>
+                                        <td class="text-truncate" style="max-width:400px;">${q.questionText}</td>
+                                        <td>${q.questionType === 'SINGLE' ? '单选' : '多选'}</td>
+                                        <td>${q.score}</td>
+                                        <td>${q.correctCount}/${stats.totalSubmissions}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2" style="min-width:150px;">
+                                                <div class="score-bar flex-grow-1"><div class="score-bar-fill" style="width:${q.correctRate}%"></div></div>
+                                                <small>${q.correctRate.toFixed(1)}%</small>
+                                            </div>
+                                        </td>
+                                    </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card p-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-people"></i> 学生成绩列表（${attempts.length}条）</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr><th>姓名</th><th>学号</th><th>第几次</th><th>得分</th><th>总分</th><th>用时</th><th>是否超时</th><th>提交时间</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${attempts.length === 0 ? '<tr><td colspan="8" class="text-center text-muted">暂无成绩</td></tr>' :
+                                    attempts.map(a => `<tr>
+                                        <td class="fw-bold">${a.studentName}</td>
+                                        <td>${a.studentNo}</td>
+                                        <td>第${a.attemptNo}次</td>
+                                        <td><span class="fw-bold ${a.score >= stats.exam.passScore ? 'text-success' : 'text-danger'}">${a.score}</span></td>
+                                        <td>${a.totalScore}</td>
+                                        <td>${Math.floor(a.timeSpentSeconds / 60)}分${a.timeSpentSeconds % 60}秒</td>
+                                        <td>${a.isTimeout ? '<span class="badge bg-warning text-dark">超时</span>' : '<span class="badge bg-success">正常</span>'}</td>
+                                        <td class="small text-muted">${(a.submitTime || '').replace('T', ' ').slice(0, 19)}</td>
+                                    </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                document.getElementById('statsContent').innerHTML = '<div class="text-center py-5 text-danger">加载失败</div>';
+            }
+        }
+
+        loadCourses();
+        loadExamList();
+    </script>
+</body>
+</html>

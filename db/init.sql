@@ -82,6 +82,87 @@ CREATE TABLE `news` (
     `newsdate` DATETIME COMMENT '时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- (9) 试卷表 exam
+CREATE TABLE `exam` (
+    `exam_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `exam_title` VARCHAR(255) NOT NULL COMMENT '试卷标题',
+    `course_id` INT COMMENT '关联的课程介绍ID(test表tid)',
+    `course_name` VARCHAR(255) COMMENT '关联课程名称',
+    `duration_minutes` INT NOT NULL DEFAULT 60 COMMENT '限时时长(分钟)',
+    `pass_score` DECIMAL(5,2) NOT NULL DEFAULT 60.00 COMMENT '及格线',
+    `total_score` DECIMAL(6,2) NOT NULL DEFAULT 100.00 COMMENT '总分',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT草稿/PUBLISHED已发布/CLOSED已截止',
+    `max_attempts` INT NOT NULL DEFAULT 1 COMMENT '每位学生最大作答次数',
+    `scoring_rule` VARCHAR(20) NOT NULL DEFAULT 'ALL_OR_NOTHING' COMMENT '多选题判分规则：ALL_OR_NOTHING全对得分/PROPORTIONAL按比例得分',
+    `start_time` DATETIME COMMENT '生效开始时间',
+    `end_time` DATETIME COMMENT '截止时间',
+    `created_by` INT COMMENT '创建教师ID',
+    `created_by_name` VARCHAR(50) COMMENT '创建教师姓名',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='试卷表';
+
+-- (10) 试卷题目表 exam_question
+CREATE TABLE `exam_question` (
+    `question_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `exam_id` INT NOT NULL COMMENT '所属试卷ID',
+    `question_type` VARCHAR(20) NOT NULL DEFAULT 'SINGLE' COMMENT '题目类型：SINGLE单选/MULTIPLE多选',
+    `question_text` TEXT NOT NULL COMMENT '题干',
+    `score` DECIMAL(5,2) NOT NULL DEFAULT 10.00 COMMENT '分值',
+    `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序',
+    `analysis` TEXT COMMENT '题目解析',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX `idx_exam_id` (`exam_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='试卷题目表';
+
+-- (11) 题目选项表 exam_option
+CREATE TABLE `exam_option` (
+    `option_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `question_id` INT NOT NULL COMMENT '所属题目ID',
+    `option_label` VARCHAR(10) NOT NULL COMMENT '选项标签(A/B/C/D等)',
+    `option_text` TEXT NOT NULL COMMENT '选项内容',
+    `is_correct` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否为正确答案：0否/1是',
+    `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序',
+    INDEX `idx_question_id` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='题目选项表';
+
+-- (12) 作答记录表 exam_attempt
+CREATE TABLE `exam_attempt` (
+    `attempt_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `exam_id` INT NOT NULL COMMENT '试卷ID',
+    `student_id` INT NOT NULL COMMENT '学生ID',
+    `student_name` VARCHAR(50) COMMENT '学生姓名',
+    `student_no` VARCHAR(50) COMMENT '学号',
+    `attempt_no` INT NOT NULL DEFAULT 1 COMMENT '第几次作答',
+    `score` DECIMAL(6,2) COMMENT '得分',
+    `total_score` DECIMAL(6,2) COMMENT '试卷总分(快照)',
+    `time_spent_seconds` INT COMMENT '用时(秒)',
+    `is_submitted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已提交：0否/1是',
+    `is_timeout` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否超时：0否/1是',
+    `start_time` DATETIME COMMENT '开始答题时间',
+    `submit_time` DATETIME COMMENT '提交时间',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX `idx_exam_student` (`exam_id`, `student_id`),
+    INDEX `idx_student_id` (`student_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='作答记录表';
+
+-- (13) 答题详情表 exam_answer
+CREATE TABLE `exam_answer` (
+    `answer_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `attempt_id` INT NOT NULL COMMENT '作答记录ID',
+    `question_id` INT NOT NULL COMMENT '题目ID',
+    `question_text` TEXT COMMENT '题干(快照)',
+    `question_type` VARCHAR(20) COMMENT '题目类型(快照)',
+    `score` DECIMAL(5,2) COMMENT '题目分值(快照)',
+    `student_answers` VARCHAR(255) COMMENT '学生答案(逗号分隔，如A,C)',
+    `correct_answers` VARCHAR(255) COMMENT '正确答案(快照，逗号分隔)',
+    `option_snapshot` TEXT COMMENT '选项内容快照(JSON)',
+    `analysis` TEXT COMMENT '题目解析(快照)',
+    `is_correct` TINYINT(1) COMMENT '是否正确：0否/1是',
+    `actual_score` DECIMAL(5,2) COMMENT '实际得分',
+    INDEX `idx_attempt_id` (`attempt_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='答题详情表';
+
 -- Seeding Data (30 records per table)
 
 -- Classes

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线测验 - 学生中心</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .nav-link.active { color: var(--primary-color) !important; border-bottom: 2px solid var(--primary-color); }
+        .exam-card { transition: all 0.2s; border-left: 4px solid var(--primary-color); }
+        .exam-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .countdown-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 999; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .countdown-timer { font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: bold; }
+        .countdown-timer.warning { color: #f08c00; }
+        .countdown-timer.danger { color: #c92a2a; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .question-block { background: #fff; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .question-block .q-index { display: inline-block; width: 32px; height: 32px; line-height: 32px; text-align: center; background: var(--primary-color); color: #fff; border-radius: 50%; font-weight: bold; margin-right: 0.5rem; }
+        .option-block { display: flex; align-items: flex-start; padding: 0.75rem 1rem; margin: 0.5rem 0; border: 1px solid #e9ecef; border-radius: 0.5rem; cursor: pointer; transition: all 0.15s; }
+        .option-block:hover { border-color: var(--primary-color); background: #f0f4ff; }
+        .option-block.selected { border-color: var(--primary-color); background: #e7f5ff; }
+        .option-block.correct { border-color: #40c057; background: #d3f9d8; }
+        .option-block.wrong { border-color: #fa5252; background: #ffe3e3; }
+        .option-label { display: inline-block; width: 28px; height: 28px; line-height: 26px; text-align: center; border: 2px solid #dee2e6; border-radius: 50%; margin-right: 0.75rem; font-weight: bold; flex-shrink: 0; }
+        .option-block.selected .option-label { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+        .option-block.correct .option-label { border-color: #40c057; background: #40c057; color: #fff; }
+        .option-block.wrong .option-label { border-color: #fa5252; background: #fa5252; color: #fff; }
+        .nav-question-list { position: sticky; top: 100px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+        .nav-q-btn { width: 40px; height: 40px; line-height: 38px; text-align: center; border: 1px solid #dee2e6; border-radius: 0.5rem; cursor: pointer; font-weight: 500; }
+        .nav-q-btn.answered { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+        .nav-q-btn.current { outline: 2px solid #f08c00; outline-offset: 2px; }
+        .result-card.pass { border-left: 4px solid #40c057; }
+        .result-card.fail { border-left: 4px solid #fa5252; }
+        .score-display { font-size: 3rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="mainApp">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+            <div class="container">
+                <a class="navbar-brand fw-bold text-primary" href="student.html">SchoolSystem</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-link px-3" role="button" onclick="location.href='student.html'">首页</li>
+                        <li class="nav-link px-3" role="button" onclick="location.href='student.html'">课程介绍</li>
+                        <li class="nav-link px-3" role="button" onclick="location.href='student.html'">教学内容</li>
+                        <li class="nav-link px-3" role="button" onclick="location.href='student.html'">实验内容</li>
+                        <li class="nav-link px-3" role="button" onclick="location.href='student.html'">互动交流</li>
+                        <li class="nav-link px-3 active" role="button">在线测验</li>
+                    </ul>
+                    <div class="d-flex align-items-center">
+                        <span id="userInfo" class="me-3 text-muted small"></span>
+                        <button class="btn btn-outline-danger btn-sm" onclick="api.clearSession()">登出</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container py-4" id="pageContent">
+            <div id="listView">
+                <ul class="nav nav-pills mb-4 bg-light rounded p-1" style="width: fit-content;">
+                    <li class="nav-item"><a class="nav-link active" id="tabAvailable" onclick="switchTab('available')">可作答试卷</a></li>
+                    <li class="nav-item"><a class="nav-link" id="tabHistory" onclick="switchTab('history')">我的成绩</a></li>
+                </ul>
+
+                <div id="availableView">
+                    <div id="availableList" class="row g-3"></div>
+                </div>
+
+                <div id="historyView" class="d-none">
+                    <div class="card p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr><th>试卷</th><th>课程</th><th>得分</th><th>总分</th><th>第几次</th><th>用时</th><th>状态</th><th>提交时间</th><th>操作</th></tr>
+                                </thead>
+                                <tbody id="historyList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="examView" class="d-none"></div>
+            <div id="resultView" class="d-none"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'student') location.href = 'index.html';
+
+        document.getElementById('userInfo').innerText = `欢迎，${session.user.username}`;
+
+        let currentTab = 'available';
+        let availableExams = [];
+        let myAttempts = [];
+        let currentExam = null;
+        let currentAttempt = null;
+        let currentQuestions = [];
+        let myAnswers = {};
+        let countdownTimer = null;
+        let remainingSeconds = 0;
+        let examStartTime = null;
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tabAvailable').classList.toggle('active', tab === 'available');
+            document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+            document.getElementById('availableView').classList.toggle('d-none', tab !== 'available');
+            document.getElementById('historyView').classList.toggle('d-none', tab !== 'history');
+            if (tab === 'available') loadAvailable();
+            if (tab === 'history') loadHistory();
+        }
+
+        function showView(view) {
+            document.getElementById('listView').classList.toggle('d-none', view !== 'list');
+            document.getElementById('examView').classList.toggle('d-none', view !== 'exam');
+            document.getElementById('resultView').classList.toggle('d-none', view !== 'result');
+            window.scrollTo(0, 0);
+        }
+
+        async function loadAvailable() {
+            const list = document.getElementById('availableList');
+            list.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
+            try {
+                availableExams = await api.request('/exam-student/available');
+                const now = new Date();
+                availableExams = availableExams.filter(e => {
+                    if (e.endTime) {
+                        const end = new Date(e.endTime);
+                        if (now > end) return false;
+                    }
+                    if (e.startTime) {
+                        const start = new Date(e.startTime);
+                        if (now < start) return false;
+                    }
+                    return true;
+                });
+
+                if (availableExams.length === 0) {
+                    list.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="bi bi-clipboard-x fs-1"></i><div class="mt-2">暂无可作答的试卷</div></div>';
+                    return;
+                }
+
+                list.innerHTML = availableExams.map(e => {
+                    const passText = e.passScore ? `及格线: ${e.passScore}分` : '';
+                    return `<div class="col-md-6">
+                        <div class="card exam-card h-100 p-4">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0">${e.examTitle}</h6>
+                                <span class="badge bg-success">已发布</span>
+                            </div>
+                            <p class="small text-muted mb-2">${e.courseName || '暂无关联课程'}</p>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-light text-dark"><i class="bi bi-clock"></i> ${e.durationMinutes}分钟</span>
+                                <span class="badge bg-light text-dark"><i class="bi bi-trophy"></i> ${e.totalScore}分</span>
+                                <span class="badge bg-light text-dark"><i class="bi bi-check-circle"></i> ${passText}</span>
+                                <span class="badge bg-light text-dark"><i class="bi bi-repeat"></i> 最多${e.maxAttempts}次</span>
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="startExam(${e.examId})"><i class="bi bi-pencil-square"></i> 开始作答</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="col-12 text-center py-5 text-danger">加载失败</div>';
+            }
+        }
+
+        async function loadHistory() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+            try {
+                myAttempts = await api.request('/exam-student/my-attempts/' + session.user.uid);
+                if (myAttempts.length === 0) {
+                    list.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted">暂无作答记录</td></tr>';
+                    return;
+                }
+                list.innerHTML = myAttempts.map(a => {
+                    const pass = a.score >= a.totalScore * 0.6;
+                    const mins = Math.floor(a.timeSpentSeconds / 60);
+                    const secs = a.timeSpentSeconds % 60;
+                    return `<tr>
+                        <td class="fw-bold">${a.exam?.examTitle || '试卷#' + a.examId}</td>
+                        <td class="small text-muted">-</td>
+                        <td class="fw-bold ${pass ? 'text-success' : 'text-danger'}">${a.score}</td>
+                        <td>${a.totalScore}</td>
+                        <td>第${a.attemptNo}次</td>
+                        <td>${mins}分${secs}秒</td>
+                        <td>${a.isTimeout ? '<span class="badge bg-warning text-dark">超时</span>' : '<span class="badge bg-success">正常</span>'}</td>
+                        <td class="small text-muted">${(a.submitTime || '').replace('T', ' ').slice(0, 16)}</td>
+                        <td><button class="btn btn-sm btn-outline-primary" onclick="viewResult(${a.attemptId})">查看详情</button></td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                list.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-danger">加载失败</td></tr>';
+            }
+        }
+
+        async function startExam(examId) {
+            if (!confirm('开始作答后计时将立即开始，确定开始吗？')) return;
+            try {
+                const res = await api.request('/exam-student/start', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        examId: examId,
+                        studentId: session.user.uid,
+                        studentName: session.user.username,
+                        studentNo: session.user.userno
+                    })
+                });
+                if (!res.success) {
+                    api.showToast(res.message || '无法开始作答', 'danger');
+                    return;
+                }
+                currentExam = res.exam;
+                currentAttempt = res.attempt;
+                currentQuestions = res.questions;
+                myAnswers = {};
+                examStartTime = new Date();
+                remainingSeconds = currentExam.durationMinutes * 60;
+
+                renderExamPage();
+                showView('exam');
+                startCountdown();
+            } catch (e) {
+                api.showToast('开始作答失败', 'danger');
+            }
+        }
+
+        function startCountdown() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            updateCountdownDisplay();
+            countdownTimer = setInterval(() => {
+                remainingSeconds--;
+                updateCountdownDisplay();
+                if (remainingSeconds <= 0) {
+                    clearInterval(countdownTimer);
+                    submitExam(true);
+                }
+            }, 1000);
+        }
+
+        function updateCountdownDisplay() {
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            const display = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            const el = document.getElementById('countdownDisplay');
+            if (el) {
+                el.innerText = display;
+                el.classList.remove('warning', 'danger');
+                if (remainingSeconds <= 60) el.classList.add('danger');
+                else if (remainingSeconds <= 300) el.classList.add('warning');
+            }
+        }
+
+        function renderExamPage() {
+            const view = document.getElementById('examView');
+            view.innerHTML = `
+                <div class="countdown-bar py-2">
+                    <div class="container d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="fw-bold mb-0">${currentExam.examTitle}</h5>
+                            <small class="text-muted">${currentExam.courseName || ''} · 共${currentQuestions.length}题 · ${currentExam.totalScore}分</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="text-muted small"><i class="bi bi-clock"></i> 剩余时间:</span>
+                            <span id="countdownDisplay" class="countdown-timer">00:00</span>
+                            <button class="btn btn-danger" onclick="confirmSubmit()"><i class="bi bi-send"></i> 交卷</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="container py-4 pt-5 mt-3">
+                    <div class="row">
+                        <div class="col-md-9">
+                            <div id="questionsContainer"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3">
+                                <h6 class="fw-bold mb-3">答题卡</h6>
+                                <div id="questionNav" class="nav-question-list"></div>
+                                <div class="mt-3 pt-3 border-top small">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="nav-q-btn answered" style="width:20px;height:20px;line-height:18px;font-size:12px;">1</span>
+                                        <span class="text-muted">已作答</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="nav-q-btn" style="width:20px;height:20px;line-height:18px;font-size:12px;">1</span>
+                                        <span class="text-muted">未作答</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            renderQuestions();
+            renderQuestionNav();
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = currentQuestions.map((q, i) => {
+                const typeLabel = q.questionType === 'SINGLE' ? '单选题' : '多选题';
+                const typeColor = q.questionType === 'SINGLE' ? 'bg-success' : 'bg-info';
+                return `<div class="question-block" id="qblock_${i}">
+                    <div class="mb-3">
+                        <span class="q-index">${i + 1}</span>
+                        <span class="badge ${typeColor} me-2">${typeLabel}</span>
+                        <span class="badge bg-light text-dark">${q.score}分</span>
+                        <div class="mt-2 fw-medium">${q.questionText}</div>
+                    </div>
+                    <div class="ms-4">
+                        ${(q.options || []).map(o => {
+                            const selected = (myAnswers[q.questionId] || []).includes(o.optionLabel);
+                            return `<div class="option-block ${selected ? 'selected' : ''}" onclick="toggleAnswer(${i}, '${o.optionLabel}', '${q.questionType}')">
+                                <span class="option-label">${o.optionLabel}</span>
+                                <div>${o.optionText}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderQuestionNav() {
+            const nav = document.getElementById('questionNav');
+            nav.innerHTML = currentQuestions.map((q, i) => {
+                const answered = (myAnswers[q.questionId] || []).length > 0;
+                return `<div class="nav-q-btn ${answered ? 'answered' : ''}" id="navq_${i}" onclick="scrollToQuestion(${i})">${i + 1}</div>`;
+            }).join('');
+        }
+
+        function scrollToQuestion(idx) {
+            document.querySelectorAll('.nav-q-btn').forEach(b => b.classList.remove('current'));
+            const el = document.getElementById('navq_' + idx);
+            if (el) el.classList.add('current');
+            document.getElementById('qblock_' + idx)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function toggleAnswer(qIdx, label, type) {
+            const q = currentQuestions[qIdx];
+            const qid = q.questionId;
+            if (!myAnswers[qid]) myAnswers[qid] = [];
+            if (type === 'SINGLE') {
+                myAnswers[qid] = [label];
+            } else {
+                const idx = myAnswers[qid].indexOf(label);
+                if (idx >= 0) myAnswers[qid].splice(idx, 1);
+                else myAnswers[qid].push(label);
+                myAnswers[qid].sort();
+            }
+            renderQuestions();
+            renderQuestionNav();
+        }
+
+        function confirmSubmit() {
+            const answered = Object.values(myAnswers).filter(a => a.length > 0).length;
+            const total = currentQuestions.length;
+            if (answered < total) {
+                if (!confirm(`还有 ${total - answered} 道题未作答，确定交卷吗？`)) return;
+            } else {
+                if (!confirm('确定要交卷吗？')) return;
+            }
+            submitExam(false);
+        }
+
+        async function submitExam(forceTimeout) {
+            if (countdownTimer) clearInterval(countdownTimer);
+            try {
+                const res = await api.request('/exam-student/submit', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        attemptId: currentAttempt.attemptId,
+                        answers: myAnswers,
+                        forceTimeout: forceTimeout
+                    })
+                });
+                if (!res.success) {
+                    api.showToast(res.message || '提交失败', 'danger');
+                    return;
+                }
+                if (forceTimeout) {
+                    api.showToast('考试时间到，已自动交卷', 'warning');
+                } else {
+                    api.showToast('交卷成功', 'success');
+                }
+                viewResult(res.attempt.attemptId);
+            } catch (e) {
+                api.showToast('提交失败', 'danger');
+            }
+        }
+
+        async function viewResult(attemptId) {
+            showView('result');
+            const view = document.getElementById('resultView');
+            view.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+            try {
+                const detail = await api.request('/exam-student/attempt-detail/' + attemptId);
+                const pass = detail.score >= (detail.exam?.passScore || 60);
+                const mins = Math.floor(detail.timeSpentSeconds / 60);
+                const secs = detail.timeSpentSeconds % 60;
+
+                let html = `
+                    <div class="mb-4">
+                        <button class="btn btn-outline-secondary" onclick="showView('list');switchTab(currentTab);">
+                            <i class="bi bi-arrow-left"></i> 返回
+                        </button>
+                    </div>
+                    <div class="card ${pass ? 'result-card pass' : 'result-card fail'} p-5 text-center mb-4">
+                        <h4 class="fw-bold mb-4">${detail.exam?.examTitle || '测验结果'}</h4>
+                        <div class="score-display ${pass ? 'text-success' : 'text-danger'} mb-2">${detail.score}</div>
+                        <div class="text-muted mb-3">/ ${detail.totalScore} 分</div>
+                        <div class="d-flex justify-content-center gap-4 flex-wrap">
+                            <div><span class="badge ${pass ? 'bg-success' : 'bg-danger'} px-3 py-2">${pass ? '🎉 已及格' : '😢 未及格'}</span></div>
+                            <div><i class="bi bi-clock"></i> 用时: ${mins}分${secs}秒</div>
+                            <div><i class="bi bi-repeat"></i> 第${detail.attemptNo}次作答</div>
+                            ${detail.isTimeout ? '<div><span class="badge bg-warning text-dark">超时交卷</span></div>' : ''}
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3"><i class="bi bi-list-check"></i> 答题详情</h6>
+                `;
+
+                const answers = detail.answers || [];
+                answers.forEach((a, i) => {
+                    const isCorrect = a.isCorrect == 1;
+                    const studentAns = (a.studentAnswers || '').split(',').filter(x => x);
+                    const correctAns = (a.correctAnswers || '').split(',').filter(x => x);
+                    let options = [];
+                    try { options = JSON.parse(a.optionSnapshot || '[]'); } catch(e) {}
+
+                    html += `<div class="question-block">
+                        <div class="mb-3">
+                            <span class="q-index" style="background:${isCorrect ? '#40c057' : '#fa5252'}">${i + 1}</span>
+                            <span class="badge ${a.questionType === 'SINGLE' ? 'bg-success' : 'bg-info'} me-2">${a.questionType === 'SINGLE' ? '单选' : '多选'}</span>
+                            <span class="badge bg-light text-dark">${a.score}分</span>
+                            <span class="badge ${isCorrect ? 'bg-success' : 'bg-danger'} ms-2">${isCorrect ? '✓ 正确 +' + a.actualScore : '✗ 错误 +' + a.actualScore}</span>
+                            <div class="mt-2 fw-medium">${a.questionText}</div>
+                        </div>
+                        <div class="ms-4">
+                            ${options.map(o => {
+                                const isStudentAns = studentAns.includes(o.optionLabel);
+                                const isCorrectAns = correctAns.includes(o.optionLabel);
+                                let cls = '';
+                                if (isStudentAns && isCorrectAns) cls = 'correct';
+                                else if (isStudentAns && !isCorrectAns) cls = 'wrong';
+                                else if (!isStudentAns && isCorrectAns) cls = 'correct';
+                                return `<div class="option-block ${cls}">
+                                    <span class="option-label">${o.optionLabel}</span>
+                                    <div>${o.optionText}</div>
+                                </div>`;
+                            }).join('')}
+                            <div class="mt-3 p-3 bg-light rounded">
+                                <div class="small"><strong>你的答案：</strong>${studentAns.length ? studentAns.join(', ') : '未作答'}</div>
+                                <div class="small text-success mt-1"><strong>正确答案：</strong>${correctAns.join(', ')}</div>
+                                ${a.analysis ? `<div class="small mt-2 text-muted"><i class="bi bi-lightbulb"></i> <strong>解析：</strong>${a.analysis}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+
+                view.innerHTML = html;
+            } catch (e) {
+                view.innerHTML = '<div class="text-center py-5 text-danger">加载失败</div>';
+            }
+        }
+
+        loadAvailable();
+    </script>
+</body>
+</html>

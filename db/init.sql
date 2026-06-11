@@ -581,3 +581,51 @@ INSERT INTO `elective_course` (`course_name`, `description`, `teacher_id`, `teac
 ('UI/UX设计基础', '学习用户界面与用户体验设计的基本原理、设计规范、原型工具使用，培养设计思维。', 29, '金老师', 25, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
 ('机器学习实战', '深入学习监督学习、非监督学习等经典机器学习算法，并通过项目实践提升应用能力。', 15, '韩老师', 30, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
 ('大数据技术栈', '学习Hadoop、Spark、Flink等大数据处理框架，掌握海量数据存储与分析技术。', 27, '严老师', 35, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN');
+
+-- (21) 签到任务表 sign_in_task
+CREATE TABLE `sign_in_task` (
+    `task_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(255) NOT NULL COMMENT '签到主题',
+    `class_id` INT NOT NULL COMMENT '班级ID',
+    `class_name` VARCHAR(100) COMMENT '班级名称(冗余)',
+    `duration_minutes` INT NOT NULL DEFAULT 5 COMMENT '有效时长(分钟)',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ONGOING' COMMENT '状态：ONGOING进行中/ENDED已结束',
+    `created_by` INT COMMENT '创建教师ID',
+    `created_by_name` VARCHAR(50) COMMENT '创建教师姓名',
+    `start_time` DATETIME NOT NULL COMMENT '开始时间',
+    `end_time` DATETIME NOT NULL COMMENT '结束时间(=开始+时长)',
+    `signed_count` INT NOT NULL DEFAULT 0 COMMENT '已签到人数',
+    `absent_count` INT NOT NULL DEFAULT 0 COMMENT '缺勤人数',
+    `leave_count` INT NOT NULL DEFAULT 0 COMMENT '请假人数',
+    `total_students` INT NOT NULL DEFAULT 0 COMMENT '班级总人数',
+    `attendance_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT '出勤率(%)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_class_id` (`class_id`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_created_by` (`created_by`),
+    INDEX `idx_end_time` (`end_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到任务表';
+
+-- (22) 签到记录表 sign_in_record
+CREATE TABLE `sign_in_record` (
+    `record_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `task_id` INT NOT NULL COMMENT '签到任务ID',
+    `student_id` INT NOT NULL COMMENT '学生ID',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `student_no` VARCHAR(50) COMMENT '学号(冗余)',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ABSENT' COMMENT '状态：SIGNED已签到/ABSENT缺勤/LEAVE请假',
+    `sign_in_time` DATETIME COMMENT '签到时间',
+    `sign_in_ip` VARCHAR(50) COMMENT '签到IP地址',
+    `is_manual` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否教师手工补登：0否/1是',
+    `manual_by` INT COMMENT '手工补登教师ID',
+    `manual_by_name` VARCHAR(50) COMMENT '手工补登教师姓名',
+    `manual_time` DATETIME COMMENT '手工补登时间',
+    `remark` VARCHAR(255) COMMENT '备注',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_task_student` (`task_id`, `student_id`),
+    INDEX `idx_task_id` (`task_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到记录表';

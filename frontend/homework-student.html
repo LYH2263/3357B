@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作业中心 - 学生中心</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .nav-link.active { color: var(--primary-color) !important; border-bottom: 2px solid var(--primary-color); }
+        .homework-card { transition: all 0.2s; border-left: 4px solid var(--primary-color); }
+        .homework-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .homework-card.overdue { border-left-color: #868e96; opacity: 0.8; }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 500; }
+        .status-not-submitted { background: #fff3bf; color: #e67700; }
+        .status-submitted { background: #d3f9d8; color: #2b8a3e; }
+        .status-graded { background: #dbe4ff; color: #364fc7; }
+        .status-rejected { background: #ffe3e3; color: #c92a2a; }
+        .status-overdue { background: #f1f3f5; color: #868e96; }
+        .countdown { font-family: 'Courier New', monospace; font-weight: bold; }
+        .countdown.urgent { color: #c92a2a; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .upload-area { border: 2px dashed #dee2e6; border-radius: 0.75rem; padding: 3rem; text-align: center; transition: all 0.2s; cursor: pointer; }
+        .upload-area:hover { border-color: var(--primary-color); background: #f0f4ff; }
+        .upload-area.dragover { border-color: var(--primary-color); background: #e7f5ff; }
+        .tab-btn { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-color: var(--primary-color); color: var(--primary-color); font-weight: 600; }
+        .file-preview { background: #f8f9fa; border-radius: 0.5rem; padding: 1rem; display: flex; align-items: center; justify-content: space-between; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="student.html">SchoolSystem</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">首页</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">课程介绍</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">教学内容</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">实验内容</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">互动交流</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">通知中心</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='exam-student.html'">在线测验</li>
+                    <li class="nav-link px-3 active" role="button">作业中心</li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span id="userInfo" class="me-3 text-muted small"></span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="api.clearSession()">登出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4" id="pageContent">
+        <div id="listView">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0">作业中心</h4>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary tab-btn active" onclick="filterHomework('all')">全部</button>
+                    <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterHomework('pending')">待提交</button>
+                    <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterHomework('submitted')">已提交</button>
+                    <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterHomework('graded')">已批改</button>
+                </div>
+            </div>
+
+            <div id="homeworkList" class="row g-3"></div>
+        </div>
+
+        <div id="detailView" class="d-none">
+            <div class="d-flex align-items-center mb-4">
+                <button class="btn btn-outline-secondary me-3" onclick="backToList()"><i class="bi bi-arrow-left"></i> 返回列表</button>
+                <div>
+                    <h5 class="fw-bold mb-0" id="detailTitle"></h5>
+                    <p class="text-muted small mb-0" id="detailMeta"></p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-journal-text"></i> 作业要求</h6>
+                        <div id="detailDescription" style="white-space: pre-wrap; line-height: 1.8;"></div>
+                    </div>
+
+                    <div class="card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-upload"></i> 提交作业</h6>
+                        <div id="submitArea">
+                            <div class="alert alert-info mb-3" id="submitStatusAlert"></div>
+
+                            <div id="fileUploadArea" class="upload-area mb-3" onclick="document.getElementById('fileInput').click()">
+                                <i class="bi bi-cloud-upload fs-1 text-muted mb-2"></i>
+                                <div class="fw-bold">点击选择文件或拖拽文件到此处</div>
+                                <div class="text-muted small">支持所有文件类型，单个文件不超过 50MB</div>
+                            </div>
+                            <input type="file" id="fileInput" style="display:none;" onchange="handleFileSelect()">
+
+                            <div id="filePreview" class="d-none mb-3">
+                                <div class="file-preview">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-file-earmark fs-4 me-3 text-primary"></i>
+                                        <div>
+                                            <div class="fw-bold" id="previewFileName"></div>
+                                            <div class="text-muted small" id="previewFileSize"></div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="clearFile()"><i class="bi bi-x"></i> 移除</button>
+                                </div>
+                            </div>
+
+                            <div id="currentSubmission" class="d-none mb-3">
+                                <div class="alert alert-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <span class="fw-bold">当前已提交：</span>
+                                            <a href="#" id="currentFileLink" target="_blank" class="text-decoration-none"></a>
+                                        </div>
+                                        <small class="text-muted" id="currentSubmitTime"></small>
+                                    </div>
+                                    <div class="text-muted small mt-1">提交次数：<span id="submitCount">0</span> 次</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary flex-grow-1" id="submitBtn" onclick="submitHomework()" disabled>
+                                    <i class="bi bi-send"></i> <span id="submitBtnText">提交作业</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-info-circle"></i> 提交信息</h6>
+                        <div class="mb-3">
+                            <div class="text-muted small">状态</div>
+                            <div id="detailStatus"></div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">满分</div>
+                            <div class="fw-bold" id="detailFullScore"></div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">发布教师</div>
+                            <div id="detailTeacher"></div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">发布时间</div>
+                            <div id="detailCreatedAt"></div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">截止时间</div>
+                            <div class="fw-bold" id="detailDeadline"></div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">剩余时间</div>
+                            <div class="countdown fs-5" id="detailCountdown"></div>
+                        </div>
+                    </div>
+
+                    <div id="gradeResult" class="card p-4 d-none">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-award"></i> 批改结果</h6>
+                        <div class="text-center mb-3">
+                            <div class="display-4 fw-bold text-primary" id="gradeScore">-</div>
+                            <div class="text-muted">/ <span id="gradeFullScore">100</span> 分</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">批改教师</div>
+                            <div id="gradeTeacher">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">批改时间</div>
+                            <div id="gradeTime">-</div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">教师评语</div>
+                            <div class="bg-light p-3 rounded" id="gradeComment" style="white-space: pre-wrap;">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'student') location.href = 'index.html';
+
+        document.getElementById('userInfo').innerText = `欢迎，${session.user.username}`;
+
+        let homeworkList = [];
+        let currentFilter = 'all';
+        let currentHomework = null;
+        let currentSubmission = null;
+        let selectedFile = null;
+        let countdownInterval = null;
+
+        async function loadHomeworkList() {
+            const list = document.getElementById('homeworkList');
+            list.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
+            try {
+                const [homeworks, submissions] = await Promise.all([
+                    api.request(`/homework/student/list?classId=${session.user.classId}`),
+                    api.request(`/homework/student/list?classId=${session.user.classId}`).then(() =>
+                        api.request(`/homework/student/list?classId=${session.user.classId}`)
+                    )
+                ]);
+
+                homeworkList = homeworks;
+
+                const submissionPromises = homeworks.map(h =>
+                    api.request(`/homework/student/submission/${h.homeworkId}?studentId=${session.user.uid}`)
+                );
+                const submissionResults = await Promise.all(submissionPromises);
+
+                const submissionMap = {};
+                submissionResults.forEach(r => {
+                    if (r && r.submission) {
+                        submissionMap[r.submission.homeworkId] = r.submission;
+                    }
+                });
+
+                homeworkList.forEach(h => {
+                    h.submission = submissionMap[h.homeworkId];
+                });
+
+                renderHomeworkList();
+            } catch (e) {
+                list.innerHTML = '<div class="col-12 text-center py-5 text-danger">加载失败，请刷新重试</div>';
+            }
+        }
+
+        function filterHomework(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderHomeworkList();
+        }
+
+        function getEffectiveStatus(h) {
+            const now = new Date();
+            const deadline = new Date(h.deadline);
+            const isOverdue = now > deadline;
+
+            if (!h.submission || h.submission.status === 'NOT_SUBMITTED') {
+                return isOverdue ? 'OVERDUE' : 'NOT_SUBMITTED';
+            }
+            return h.submission.status;
+        }
+
+        function getStatusBadge(status) {
+            const statusMap = {
+                'NOT_SUBMITTED': { class: 'status-not-submitted', text: '未提交' },
+                'SUBMITTED': { class: 'status-submitted', text: '已提交' },
+                'GRADED': { class: 'status-graded', text: '已批改' },
+                'REJECTED': { class: 'status-rejected', text: '已打回' },
+                'OVERDUE': { class: 'status-overdue', text: '逾期未交' }
+            };
+            const info = statusMap[status] || statusMap['NOT_SUBMITTED'];
+            return `<span class="status-badge ${info.class}">${info.text}</span>`;
+        }
+
+        function renderHomeworkList() {
+            const list = document.getElementById('homeworkList');
+            const now = new Date();
+
+            let filtered = homeworkList;
+            if (currentFilter === 'pending') {
+                filtered = homeworkList.filter(h => {
+                    const status = getEffectiveStatus(h);
+                    return status === 'NOT_SUBMITTED' || status === 'REJECTED';
+                });
+            } else if (currentFilter === 'submitted') {
+                filtered = homeworkList.filter(h => getEffectiveStatus(h) === 'SUBMITTED');
+            } else if (currentFilter === 'graded') {
+                filtered = homeworkList.filter(h => getEffectiveStatus(h) === 'GRADED');
+            }
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="bi bi-journal-x fs-1"></i><div class="mt-2">暂无作业</div></div>';
+                return;
+            }
+
+            filtered.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
+            list.innerHTML = filtered.map(h => {
+                const status = getEffectiveStatus(h);
+                const deadline = new Date(h.deadline);
+                const isOverdue = now > deadline;
+                const timeLeft = deadline - now;
+                const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
+
+                let timeText = '';
+                if (isOverdue) {
+                    timeText = '<span class="text-danger">已截止</span>';
+                } else if (daysLeft <= 1) {
+                    const hoursLeft = Math.ceil(timeLeft / (1000 * 60 * 60));
+                    timeText = `<span class="text-danger">剩余 ${hoursLeft} 小时</span>`;
+                } else {
+                    timeText = `<span class="text-muted">剩余 ${daysLeft} 天</span>`;
+                }
+
+                let scoreDisplay = '';
+                if (status === 'GRADED' && h.submission && h.submission.score !== null) {
+                    const score = h.submission.score;
+                    scoreDisplay = `<div class="mt-2"><span class="badge ${score >= 60 ? 'bg-success' : 'bg-warning'}">${score} 分</span></div>`;
+                }
+
+                let rejectedNote = '';
+                if (status === 'REJECTED') {
+                    rejectedNote = '<div class="mt-2 text-warning small"><i class="bi bi-exclamation-triangle"></i> 作业已被打回，请重新提交</div>';
+                }
+
+                return `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card homework-card p-4 h-100 ${isOverdue ? 'overdue' : ''}" onclick="viewDetail(${h.homeworkId})" style="cursor:pointer;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 flex-grow-1" style="margin-right:1rem;">${h.title}</h6>
+                                ${getStatusBadge(status)}
+                            </div>
+                            <p class="small text-muted mb-2" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${h.description || '暂无描述'}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted"><i class="bi bi-person"></i> ${h.createdByName || '-'}</small>
+                                <small><i class="bi bi-flag"></i> 满分 ${h.fullScore} 分</small>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="small">
+                                    <i class="bi bi-calendar"></i> ${h.deadline.replace('T', ' ').slice(0, 16)}
+                                </div>
+                                ${timeText}
+                            </div>
+                            ${scoreDisplay}
+                            ${rejectedNote}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function viewDetail(homeworkId) {
+            currentHomework = homeworkList.find(h => h.homeworkId === homeworkId);
+            if (!currentHomework) return;
+
+            try {
+                const result = await api.request(`/homework/student/submission/${homeworkId}?studentId=${session.user.uid}`);
+                currentSubmission = result.submission;
+                currentHomework.submission = currentSubmission;
+
+                renderDetail();
+                document.getElementById('listView').classList.add('d-none');
+                document.getElementById('detailView').classList.remove('d-none');
+                window.scrollTo(0, 0);
+            } catch (e) {
+                api.showToast('加载失败', 'danger');
+            }
+        }
+
+        function backToList() {
+            document.getElementById('listView').classList.remove('d-none');
+            document.getElementById('detailView').classList.add('d-none');
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            clearFile();
+            loadHomeworkList();
+        }
+
+        function renderDetail() {
+            if (!currentHomework) return;
+
+            const h = currentHomework;
+            const s = currentSubmission;
+            const status = getEffectiveStatus(h);
+            const now = new Date();
+            const deadline = new Date(h.deadline);
+            const isOverdue = now > deadline;
+
+            document.getElementById('detailTitle').innerText = h.title;
+            document.getElementById('detailMeta').innerText = `${h.className} | 满分 ${h.fullScore} 分`;
+            document.getElementById('detailDescription').innerText = h.description || '暂无描述';
+            document.getElementById('detailFullScore').innerText = `${h.fullScore} 分`;
+            document.getElementById('detailTeacher').innerText = h.createdByName || '-';
+            document.getElementById('detailCreatedAt').innerText = h.createdAt ? h.createdAt.replace('T', ' ').slice(0, 16) : '-';
+            document.getElementById('detailDeadline').innerHTML = `${h.deadline.replace('T', ' ').slice(0, 16)} ${isOverdue ? '<span class="badge bg-danger ms-2">已截止</span>' : ''}`;
+            document.getElementById('detailStatus').innerHTML = getStatusBadge(status);
+
+            let alertHtml = '';
+            let canSubmit = !isOverdue;
+            let submitBtnText = '提交作业';
+
+            if (isOverdue) {
+                alertHtml = '<div class="alert alert-danger"><i class="bi bi-exclamation-circle"></i> 作业已超过截止时间，无法提交</div>';
+                canSubmit = false;
+            } else if (status === 'REJECTED') {
+                alertHtml = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> 作业已被打回：${s.comment || '请重新提交'}。请在截止前重新上传。</div>`;
+                submitBtnText = '重新提交';
+            } else if (status === 'SUBMITTED') {
+                alertHtml = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> 您已提交作业，等待教师批改中。在截止前可覆盖重交。</div>';
+                submitBtnText = '覆盖重交';
+            } else if (status === 'GRADED') {
+                alertHtml = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> 作业已批改，查看右侧批改结果。</div>';
+                canSubmit = false;
+            } else if (status === 'OVERDUE') {
+                alertHtml = '<div class="alert alert-danger"><i class="bi bi-exclamation-circle"></i> 您已逾期未交，无法提交。</div>';
+                canSubmit = false;
+            } else {
+                alertHtml = '<div class="alert alert-primary"><i class="bi bi-info-circle"></i> 请在截止时间前完成并提交作业。</div>';
+            }
+
+            document.getElementById('submitStatusAlert').innerHTML = alertHtml;
+            document.getElementById('submitBtn').disabled = !canSubmit;
+            document.getElementById('submitBtnText').innerText = submitBtnText;
+
+            if (s && s.fileUrl) {
+                document.getElementById('currentSubmission').classList.remove('d-none');
+                document.getElementById('currentFileLink').href = `${api.baseUrl}/homework/download/${s.submissionId}`;
+                document.getElementById('currentFileLink').innerText = s.fileName || '已提交文件';
+                document.getElementById('currentSubmitTime').innerText = s.submittedAt ? s.submittedAt.replace('T', ' ').slice(0, 16) : '-';
+                document.getElementById('submitCount').innerText = s.submissionCount || 0;
+            } else {
+                document.getElementById('currentSubmission').classList.add('d-none');
+            }
+
+            if (status === 'GRADED' && s) {
+                document.getElementById('gradeResult').classList.remove('d-none');
+                document.getElementById('gradeScore').innerText = s.score !== null ? s.score : '-';
+                document.getElementById('gradeFullScore').innerText = h.fullScore;
+                document.getElementById('gradeTeacher').innerText = s.gradedByName || '-';
+                document.getElementById('gradeTime').innerText = s.gradedAt ? s.gradedAt.replace('T', ' ').slice(0, 16) : '-';
+                document.getElementById('gradeComment').innerText = s.comment || '暂无评语';
+            } else {
+                document.getElementById('gradeResult').classList.add('d-none');
+            }
+
+            if (countdownInterval) clearInterval(countdownInterval);
+            updateCountdown();
+            countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        function updateCountdown() {
+            if (!currentHomework) return;
+            const now = new Date();
+            const deadline = new Date(currentHomework.deadline);
+            const diff = deadline - now;
+
+            if (diff <= 0) {
+                document.getElementById('detailCountdown').innerText = '已截止';
+                document.getElementById('detailCountdown').classList.add('text-muted');
+                document.getElementById('detailCountdown').classList.remove('urgent');
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            let timeStr = '';
+            if (days > 0) timeStr += `${days}天 `;
+            timeStr += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            const countdownEl = document.getElementById('detailCountdown');
+            countdownEl.innerText = timeStr;
+
+            if (diff < 24 * 60 * 60 * 1000) {
+                countdownEl.classList.add('urgent');
+            } else {
+                countdownEl.classList.remove('urgent');
+            }
+        }
+
+        const uploadArea = document.getElementById('fileUploadArea');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                document.getElementById('fileInput').files = e.dataTransfer.files;
+                handleFileSelect();
+            }
+        });
+
+        function handleFileSelect() {
+            const input = document.getElementById('fileInput');
+            if (input.files.length > 0) {
+                selectedFile = input.files[0];
+                document.getElementById('previewFileName').innerText = selectedFile.name;
+                document.getElementById('previewFileSize').innerText = formatFileSize(selectedFile.size);
+                document.getElementById('filePreview').classList.remove('d-none');
+                document.getElementById('fileUploadArea').classList.add('d-none');
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function clearFile() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('filePreview').classList.add('d-none');
+            document.getElementById('fileUploadArea').classList.remove('d-none');
+            const status = currentSubmission ? getEffectiveStatus(currentHomework) : 'NOT_SUBMITTED';
+            const isOverdue = new Date() > new Date(currentHomework.deadline);
+            document.getElementById('submitBtn').disabled = isOverdue || status === 'GRADED' || status === 'OVERDUE';
+        }
+
+        async function submitHomework() {
+            if (!selectedFile) {
+                api.showToast('请先选择文件', 'warning');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>上传中...';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const uploadRes = await fetch(api.baseUrl + '/file/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const uploadResult = await uploadRes.json();
+
+                if (!uploadResult.success) {
+                    api.showToast('文件上传失败: ' + uploadResult.message, 'danger');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i class="bi bi-send"></i> ${document.getElementById('submitBtnText').innerText}`;
+                    return;
+                }
+
+                const submitRes = await api.request('/homework/submit', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        homeworkId: currentHomework.homeworkId,
+                        studentId: session.user.uid,
+                        fileUrl: uploadResult.url,
+                        fileName: selectedFile.name
+                    })
+                });
+
+                if (submitRes.success) {
+                    api.showToast(submitRes.message, 'success');
+                    clearFile();
+                    viewDetail(currentHomework.homeworkId);
+                } else {
+                    api.showToast(submitRes.message || '提交失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('提交失败，请重试', 'danger');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="bi bi-send"></i> ${document.getElementById('submitBtnText').innerText}`;
+            }
+        }
+
+        loadHomeworkList();
+    </script>
+</body>
+</html>

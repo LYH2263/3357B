@@ -470,3 +470,62 @@ INSERT INTO `announcement_class` (`announcement_id`, `class_id`, `class_name`) V
 (4, 3, '软件2101'),
 (7, 7, 'AI2101'),
 (9, 2, '计算机2102');
+
+-- (17) 作业表 homework
+CREATE TABLE `homework` (
+    `homework_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(255) NOT NULL COMMENT '作业标题',
+    `description` TEXT COMMENT '要求说明',
+    `class_id` INT NOT NULL COMMENT '所属班级ID',
+    `class_name` VARCHAR(100) COMMENT '班级名称(冗余)',
+    `deadline` DATETIME NOT NULL COMMENT '截止时间',
+    `full_score` DECIMAL(6,2) NOT NULL DEFAULT 100.00 COMMENT '满分分值',
+    `created_by` INT COMMENT '创建教师ID',
+    `created_by_name` VARCHAR(50) COMMENT '创建教师姓名',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED' COMMENT '状态：PUBLISHED已发布/CLOSED已截止',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_class_id` (`class_id`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_deadline` (`deadline`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='作业表';
+
+-- (18) 作业提交记录表 homework_submission
+CREATE TABLE `homework_submission` (
+    `submission_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `homework_id` INT NOT NULL COMMENT '作业ID',
+    `student_id` INT NOT NULL COMMENT '学生ID',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `student_no` VARCHAR(50) COMMENT '学号(冗余)',
+    `file_url` VARCHAR(255) COMMENT '作业文件路径',
+    `file_name` VARCHAR(255) COMMENT '原始文件名',
+    `submission_count` INT NOT NULL DEFAULT 0 COMMENT '提交次数',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'NOT_SUBMITTED' COMMENT '状态：NOT_SUBMITTED未提交/SUBMITTED已提交/GRADED已批改/REJECTED被打回/OVERDUE逾期',
+    `score` DECIMAL(6,2) COMMENT '得分',
+    `comment` TEXT COMMENT '教师评语',
+    `submitted_at` DATETIME COMMENT '最后提交时间',
+    `graded_at` DATETIME COMMENT '批改时间',
+    `graded_by` INT COMMENT '批改教师ID',
+    `graded_by_name` VARCHAR(50) COMMENT '批改教师姓名',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_homework_student` (`homework_id`, `student_id`),
+    INDEX `idx_homework_id` (`homework_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='作业提交记录表';
+
+-- Homework sample data
+INSERT INTO `homework` (`title`, `description`, `class_id`, `class_name`, `deadline`, `full_score`, `created_by`, `created_by_name`, `status`, `created_at`) VALUES
+('Java第1章作业', '完成教材第1章课后习题，提交Word文档。', 1, '计算机2101', '2026-06-30 23:59:59', 100.00, 1, '张老师', 'PUBLISHED', '2026-06-10 10:00:00'),
+('数据库设计作业', '设计一个学生管理系统的ER图，提交PDF文档。', 1, '计算机2101', '2026-07-05 23:59:59', 100.00, 2, '李老师', 'PUBLISHED', '2026-06-11 14:00:00'),
+('Python数据分析报告', '完成期末数据分析报告，不少于3000字。', 3, '软件2101', '2026-06-25 23:59:59', 100.00, 5, '孙老师', 'PUBLISHED', '2026-06-08 09:00:00'),
+('算法实验报告', '实现快速排序算法并分析时间复杂度，提交源代码和报告。', 2, '计算机2102', '2026-06-28 23:59:59', 100.00, 3, '王老师', 'PUBLISHED', '2026-06-09 11:00:00'),
+('Web前端大作业', '使用HTML/CSS/JS实现一个个人博客网站，提交源代码压缩包。', 7, 'AI2101', '2026-07-10 23:59:59', 100.00, 28, '华老师', 'PUBLISHED', '2026-06-12 08:00:00');
+
+-- Homework submission sample data
+INSERT INTO `homework_submission` (`homework_id`, `student_id`, `student_name`, `student_no`, `file_url`, `file_name`, `submission_count`, `status`, `score`, `comment`, `submitted_at`, `graded_at`, `graded_by`, `graded_by_name`) VALUES
+(1, 1, '小明', 'S2021001', '/uploads/homework1_stu1.docx', 'Java第1章作业-小明.docx', 1, 'SUBMITTED', NULL, NULL, '2026-06-12 15:30:00', NULL, NULL, NULL),
+(1, 2, '小红', 'S2021002', '/uploads/homework1_stu2.docx', 'Java第1章作业-小红.docx', 2, 'GRADED', 92.50, '完成很好，代码规范，继续保持！', '2026-06-11 10:20:00', '2026-06-11 16:00:00', 1, '张老师'),
+(1, 3, '小王', 'S2021003', NULL, NULL, 0, 'NOT_SUBMITTED', NULL, NULL, NULL, NULL, NULL, NULL),
+(3, 5, '小赵', 'S2021005', '/uploads/homework3_stu5.pdf', '数据分析报告-小赵.pdf', 1, 'REJECTED', NULL, '报告结构不完整，请补充数据可视化部分，在截止前重新提交。', '2026-06-10 14:00:00', '2026-06-10 18:00:00', 5, '孙老师');

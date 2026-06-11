@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作业管理 - 教师端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+        .main-content { margin-left: 250px; padding: 2rem; }
+        .nav-link { border-radius: 0.5rem; margin: 0.2rem 0; padding: 0.8rem 1rem; color: #333; }
+        .nav-link:hover, .nav-link.active { background: #f0f4ff; color: var(--primary-color); }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 500; }
+        .status-not-submitted { background: #fff3bf; color: #e67700; }
+        .status-submitted { background: #d3f9d8; color: #2b8a3e; }
+        .status-graded { background: #dbe4ff; color: #364fc7; }
+        .status-rejected { background: #ffe3e3; color: #c92a2a; }
+        .status-overdue { background: #f1f3f5; color: #868e96; }
+        .tab-btn { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-color: var(--primary-color); color: var(--primary-color); font-weight: 600; }
+        .submission-row { transition: all 0.2s; }
+        .submission-row:hover { background-color: #f8f9fa; }
+        .progress-bar-custom { height: 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column p-3 bg-light">
+        <a href="teacher.html" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none p-2">
+            <span class="fs-4 fw-bold text-primary">管理后台</span>
+        </a>
+        <hr>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-people"></i>学生管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-book"></i>课程介绍</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-layers"></i>班级管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-person-badge"></i>教师管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-file-earmark-text"></i>教学内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-vial"></i>实验内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-chat-dots"></i>互动交流</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-newspaper"></i>技术动态</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-megaphone"></i>公告通知</a></li>
+            <li><a href="exam-manage.html" class="nav-link"><i class="bi bi-clipboard-check"></i>在线测验</a></li>
+            <li><a href="#" class="nav-link active"><i class="bi bi-journal-text"></i>作业管理</a></li>
+        </ul>
+        <hr>
+        <div class="p-2">
+            <button class="btn btn-outline-danger w-100" onclick="api.clearSession()">登出</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="listView">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold">作业管理</h4>
+                <button class="btn btn-primary" onclick="showCreateModal()"><i class="bi bi-plus-lg"></i> 布置作业</button>
+            </div>
+            <div class="card p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>作业标题</th>
+                                <th>班级</th>
+                                <th>满分</th>
+                                <th>截止时间</th>
+                                <th>提交进度</th>
+                                <th>批改进度</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="homeworkTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="submissionListView" class="d-none">
+            <div class="d-flex align-items-center mb-4">
+                <button class="btn btn-outline-secondary me-3" onclick="backToList()"><i class="bi bi-arrow-left"></i> 返回列表</button>
+                <div>
+                    <h5 class="fw-bold mb-0" id="detailHomeworkTitle"></h5>
+                    <p class="text-muted small mb-0" id="detailHomeworkDesc"></p>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">班级总人数</div>
+                        <div class="fs-3 fw-bold text-primary" id="statTotal">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">已提交</div>
+                        <div class="fs-3 fw-bold text-success" id="statSubmitted">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">已批改</div>
+                        <div class="fs-3 fw-bold text-info" id="statGraded">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">平均分</div>
+                        <div class="fs-3 fw-bold text-warning" id="statAvg">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 mb-4">
+                <h6 class="fw-bold mb-3">未提交学生名单</h6>
+                <div id="unsubmittedList" class="d-flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">提交列表</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-secondary tab-btn active" onclick="filterSubmissions('all')">全部</button>
+                        <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterSubmissions('NOT_SUBMITTED')">未提交</button>
+                        <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterSubmissions('SUBMITTED')">待批改</button>
+                        <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterSubmissions('REJECTED')">已打回</button>
+                        <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterSubmissions('GRADED')">已批改</button>
+                        <button class="btn btn-sm btn-outline-secondary tab-btn" onclick="filterSubmissions('OVERDUE')">逾期</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>状态</th>
+                                <th>提交次数</th>
+                                <th>最后提交时间</th>
+                                <th>文件名</th>
+                                <th>分数</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="submissionTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Homework Modal -->
+    <div class="modal fade" id="createModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">布置新作业</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">作业标题 <span class="text-danger">*</span></label>
+                        <input type="text" id="hw_title" class="form-control" placeholder="请输入作业标题">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">要求说明 <span class="text-danger">*</span></label>
+                        <textarea id="hw_description" class="form-control" rows="5" placeholder="请详细描述作业要求"></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">所属班级 <span class="text-danger">*</span></label>
+                            <select id="hw_classId" class="form-select">
+                                <option value="">请选择班级</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">满分分值 <span class="text-danger">*</span></label>
+                            <input type="number" id="hw_fullScore" class="form-control" value="100" min="0" step="0.5">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">截止时间 <span class="text-danger">*</span></label>
+                        <input type="datetime-local" id="hw_deadline" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="createHomework()">确定布置</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Modal -->
+    <div class="modal fade" id="gradeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">批改作业</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="text-muted small">学生</div>
+                        <div class="fw-bold" id="gradeStudentName"></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">提交文件</div>
+                        <a href="#" id="gradeFileLink" target="_blank" class="text-decoration-none">
+                            <i class="bi bi-file-earmark"></i> <span id="gradeFileName"></span>
+                        </a>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">打分 <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" id="gradeScore" class="form-control" min="0" step="0.5">
+                            <span class="input-group-text" id="gradeFullScore">/ 100</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">评语</label>
+                        <textarea id="gradeComment" class="form-control" rows="4" placeholder="请输入评语..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-outline-warning" onclick="submitReject()">打回重交</button>
+                    <button type="button" class="btn btn-primary" onclick="submitGrade()">确认打分</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-body text-center p-4">
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3"></i>
+                    <h5 class="fw-bold">确认删除？</h5>
+                    <p class="text-muted small">删除后所有提交记录也将被清除，此操作不可撤销。</p>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" data-bs-dismiss="modal">取消</button>
+                        <button class="btn btn-danger flex-grow-1" id="confirmDeleteBtn">确定删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'teacher') location.href = 'index.html';
+
+        let homeworkList = [];
+        let classList = [];
+        let currentHomeworkId = null;
+        let currentSubmissionData = [];
+        let currentFilter = 'all';
+        let gradingSubmission = null;
+
+        async function loadClasses() {
+            try {
+                classList = await api.request('/classes/list');
+                const sel = document.getElementById('hw_classId');
+                sel.innerHTML = '<option value="">请选择班级</option>' +
+                    classList.map(c => `<option value="${c.cid}">${c.cname}</option>`).join('');
+            } catch (e) {}
+        }
+
+        async function loadHomeworkList() {
+            const body = document.getElementById('homeworkTableBody');
+            body.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+            try {
+                homeworkList = await api.request(`/homework/teacher/list?teacherId=${session.user.tid}`);
+                if (homeworkList.length === 0) {
+                    body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">暂无作业，点击右上角布置新作业</td></tr>';
+                    return;
+                }
+
+                const now = new Date();
+                body.innerHTML = homeworkList.map(h => {
+                    const deadline = new Date(h.deadline);
+                    const isOverdue = now > deadline;
+                    const submittedPercent = h.totalStudents > 0 ? Math.round(h.submittedCount / h.totalStudents * 100) : 0;
+                    const gradedPercent = h.totalStudents > 0 ? Math.round(h.gradedCount / h.totalStudents * 100) : 0;
+
+                    return `<tr>
+                        <td class="fw-bold">${h.title}</td>
+                        <td>${h.className}</td>
+                        <td>${h.fullScore}分</td>
+                        <td><span class="${isOverdue ? 'text-danger' : ''}">${h.deadline.replace('T', ' ')}</span></td>
+                        <td style="min-width:180px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height:8px;">
+                                    <div class="progress-bar bg-success" style="width:${submittedPercent}%"></div>
+                                </div>
+                                <small class="text-muted">${h.submittedCount}/${h.totalStudents}</small>
+                            </div>
+                        </td>
+                        <td style="min-width:180px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height:8px;">
+                                    <div class="progress-bar bg-info" style="width:${gradedPercent}%"></div>
+                                </div>
+                                <small class="text-muted">${h.gradedCount}/${h.submittedCount}</small>
+                            </div>
+                        </td>
+                        <td><span class="status-badge ${isOverdue ? 'status-overdue' : 'status-submitted'}">${isOverdue ? '已截止' : '进行中'}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewSubmissions(${h.homeworkId})">查看</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${h.homeworkId})">删除</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-danger">加载失败</td></tr>';
+            }
+        }
+
+        function showCreateModal() {
+            document.getElementById('hw_title').value = '';
+            document.getElementById('hw_description').value = '';
+            document.getElementById('hw_classId').value = '';
+            document.getElementById('hw_fullScore').value = '100';
+
+            const now = new Date();
+            now.setDate(now.getDate() + 7);
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('hw_deadline').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+            const modal = new bootstrap.Modal(document.getElementById('createModal'));
+            modal.show();
+        }
+
+        async function createHomework() {
+            const title = document.getElementById('hw_title').value.trim();
+            const description = document.getElementById('hw_description').value.trim();
+            const classId = document.getElementById('hw_classId').value;
+            const fullScore = parseFloat(document.getElementById('hw_fullScore').value);
+            const deadline = document.getElementById('hw_deadline').value;
+
+            if (!title) { api.showToast('请输入作业标题', 'danger'); return; }
+            if (!description) { api.showToast('请输入要求说明', 'danger'); return; }
+            if (!classId) { api.showToast('请选择所属班级', 'danger'); return; }
+            if (!deadline) { api.showToast('请设置截止时间', 'danger'); return; }
+            if (new Date(deadline) <= new Date()) { api.showToast('截止时间必须晚于当前时间', 'danger'); return; }
+
+            const classInfo = classList.find(c => c.cid == classId);
+            const data = {
+                title: title,
+                description: description,
+                classId: parseInt(classId),
+                className: classInfo?.cname || '',
+                deadline: deadline,
+                fullScore: fullScore,
+                createdBy: session.user.tid,
+                createdByName: session.user.tname
+            };
+
+            try {
+                const res = await api.request('/homework/create', { method: 'POST', body: JSON.stringify(data) });
+                if (res.success) {
+                    api.showToast('作业布置成功', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
+                    loadHomeworkList();
+                } else {
+                    api.showToast(res.message || '布置失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('布置失败', 'danger');
+            }
+        }
+
+        async function viewSubmissions(homeworkId) {
+            currentHomeworkId = homeworkId;
+            document.getElementById('listView').classList.add('d-none');
+            document.getElementById('submissionListView').classList.remove('d-none');
+
+            document.getElementById('submissionTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+
+            try {
+                const stats = await api.request(`/homework/statistics/${homeworkId}`);
+                const homework = stats.homework;
+
+                document.getElementById('detailHomeworkTitle').innerText = homework.title;
+                document.getElementById('detailHomeworkDesc').innerText = `班级: ${homework.className} | 满分: ${homework.fullScore}分 | 截止: ${homework.deadline.replace('T', ' ')}`;
+                document.getElementById('statTotal').innerText = stats.totalStudents;
+                document.getElementById('statSubmitted').innerText = stats.submittedCount;
+                document.getElementById('statGraded').innerText = stats.gradedCount;
+                document.getElementById('statAvg').innerText = stats.avgScore;
+
+                const unsubmittedHtml = stats.unsubmittedStudents.map(s =>
+                    `<span class="badge bg-light text-dark me-1 mb-1">${s.username} (${s.userno})</span>`
+                ).join('');
+                document.getElementById('unsubmittedList').innerHTML = unsubmittedHtml || '<span class="text-muted small">所有学生都已提交</span>';
+
+                currentSubmissionData = stats.submissions;
+                renderSubmissions();
+            } catch (e) {
+                document.getElementById('submissionTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-5 text-danger">加载失败</td></tr>';
+            }
+        }
+
+        function backToList() {
+            currentHomeworkId = null;
+            document.getElementById('listView').classList.remove('d-none');
+            document.getElementById('submissionListView').classList.add('d-none');
+            loadHomeworkList();
+        }
+
+        function filterSubmissions(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderSubmissions();
+        }
+
+        function getStatusBadge(status) {
+            const statusMap = {
+                'NOT_SUBMITTED': { class: 'status-not-submitted', text: '未提交' },
+                'SUBMITTED': { class: 'status-submitted', text: '已提交' },
+                'GRADED': { class: 'status-graded', text: '已批改' },
+                'REJECTED': { class: 'status-rejected', text: '已打回' },
+                'OVERDUE': { class: 'status-overdue', text: '逾期未交' }
+            };
+            const info = statusMap[status] || statusMap['NOT_SUBMITTED'];
+            return `<span class="status-badge ${info.class}">${info.text}</span>`;
+        }
+
+        function renderSubmissions() {
+            let filtered = currentSubmissionData;
+            if (currentFilter !== 'all') {
+                filtered = currentSubmissionData.filter(s => s.status === currentFilter);
+            }
+
+            const body = document.getElementById('submissionTableBody');
+            if (filtered.length === 0) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">暂无数据</td></tr>';
+                return;
+            }
+
+            body.innerHTML = filtered.map(s => {
+                const scoreDisplay = s.status === 'GRADED' ?
+                    `<span class="fw-bold ${s.score >= 60 ? 'text-success' : 'text-danger'}">${s.score}</span>` :
+                    '<span class="text-muted">-</span>';
+                const fileDisplay = s.fileUrl ?
+                    `<a href="${api.baseUrl}/homework/download/${s.submissionId}" class="text-decoration-none" target="_blank"><i class="bi bi-download"></i> ${s.fileName || '下载'}</a>` :
+                    '<span class="text-muted">-</span>';
+
+                return `<tr class="submission-row">
+                    <td>${s.studentNo}</td>
+                    <td class="fw-bold">${s.studentName}</td>
+                    <td>${getStatusBadge(s.status)}</td>
+                    <td>${s.submissionCount}次</td>
+                    <td class="small text-muted">${s.submittedAt ? s.submittedAt.replace('T', ' ').slice(0, 16) : '-'}</td>
+                    <td class="small">${fileDisplay}</td>
+                    <td>${scoreDisplay}</td>
+                    <td>
+                        ${s.fileUrl ? `<button class="btn btn-sm btn-outline-primary" onclick="downloadFile(${s.submissionId})">下载</button>` : ''}
+                        ${(s.status === 'SUBMITTED' || s.status === 'REJECTED') ? `<button class="btn btn-sm btn-outline-success" onclick="showGradeModal(${s.submissionId})">批改</button>` : ''}
+                        ${s.status === 'SUBMITTED' ? `<button class="btn btn-sm btn-outline-warning" onclick="showRejectModal(${s.submissionId})">打回</button>` : ''}
+                        ${s.status === 'GRADED' ? `<button class="btn btn-sm btn-outline-info" onclick="showGradeModal(${s.submissionId})">查看</button>` : ''}
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function downloadFile(submissionId) {
+            window.open(`${api.baseUrl}/homework/download/${submissionId}`, '_blank');
+        }
+
+        function showGradeModal(submissionId) {
+            const submission = currentSubmissionData.find(s => s.submissionId === submissionId);
+            if (!submission) return;
+
+            gradingSubmission = submission;
+            document.getElementById('gradeStudentName').innerText = `${submission.studentName} (${submission.studentNo})`;
+            document.getElementById('gradeFileName').innerText = submission.fileName || '-';
+            document.getElementById('gradeFileLink').href = `${api.baseUrl}/homework/download/${submissionId}`;
+            document.getElementById('gradeScore').value = submission.score || '';
+            document.getElementById('gradeComment').value = submission.comment || '';
+
+            const homework = homeworkList.find(h => h.homeworkId === currentHomeworkId);
+            if (homework) {
+                document.getElementById('gradeFullScore').innerText = `/ ${homework.fullScore}`;
+                document.getElementById('gradeScore').max = homework.fullScore;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('gradeModal'));
+            modal.show();
+        }
+
+        function showRejectModal(submissionId) {
+            const submission = currentSubmissionData.find(s => s.submissionId === submissionId);
+            if (!submission) return;
+
+            gradingSubmission = submission;
+            document.getElementById('gradeStudentName').innerText = `${submission.studentName} (${submission.studentNo})`;
+            document.getElementById('gradeFileName').innerText = submission.fileName || '-';
+            document.getElementById('gradeFileLink').href = `${api.baseUrl}/homework/download/${submissionId}`;
+            document.getElementById('gradeScore').value = '';
+            document.getElementById('gradeComment').value = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('gradeModal'));
+            modal.show();
+        }
+
+        async function submitGrade() {
+            if (!gradingSubmission) return;
+
+            const score = parseFloat(document.getElementById('gradeScore').value);
+            const comment = document.getElementById('gradeComment').value.trim();
+            const homework = homeworkList.find(h => h.homeworkId === currentHomeworkId);
+
+            if (isNaN(score)) { api.showToast('请输入分数', 'danger'); return; }
+            if (score < 0) { api.showToast('分数不能小于0', 'danger'); return; }
+            if (homework && score > homework.fullScore) { api.showToast(`分数不能超过满分 ${homework.fullScore}`, 'danger'); return; }
+
+            try {
+                const res = await api.request('/homework/grade', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        submissionId: gradingSubmission.submissionId,
+                        score: score,
+                        comment: comment,
+                        teacherId: session.user.tid,
+                        teacherName: session.user.tname
+                    })
+                });
+
+                if (res.success) {
+                    api.showToast('批改成功', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('gradeModal')).hide();
+                    viewSubmissions(currentHomeworkId);
+                } else {
+                    api.showToast(res.message || '批改失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('批改失败', 'danger');
+            }
+        }
+
+        async function submitReject() {
+            if (!gradingSubmission) return;
+
+            const comment = document.getElementById('gradeComment').value.trim();
+            if (!comment) { api.showToast('请输入打回原因', 'danger'); return; }
+
+            try {
+                const res = await api.request('/homework/reject', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        submissionId: gradingSubmission.submissionId,
+                        comment: comment,
+                        teacherId: session.user.tid,
+                        teacherName: session.user.tname
+                    })
+                });
+
+                if (res.success) {
+                    api.showToast('已打回，学生可重新提交', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('gradeModal')).hide();
+                    viewSubmissions(currentHomeworkId);
+                } else {
+                    api.showToast(res.message || '操作失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('操作失败', 'danger');
+            }
+        }
+
+        let deletingId = null;
+        function confirmDelete(homeworkId) {
+            deletingId = homeworkId;
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            document.getElementById('confirmDeleteBtn').onclick = async () => {
+                try {
+                    await api.request(`/homework/delete/${deletingId}`, { method: 'DELETE' });
+                    api.showToast('删除成功', 'success');
+                    modal.hide();
+                    loadHomeworkList();
+                } catch (e) {
+                    api.showToast('删除失败', 'danger');
+                }
+            };
+            modal.show();
+        }
+
+        loadClasses();
+        loadHomeworkList();
+    </script>
+</body>
+</html>

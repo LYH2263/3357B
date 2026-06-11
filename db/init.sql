@@ -686,3 +686,56 @@ INSERT INTO `message` (`conversation_id`, `sender_type`, `sender_id`, `sender_na
 (4, 'TEACHER', 3, '王老师', '你具体哪里不清楚？', 1, '2026-06-09 16:30:00'),
 (4, 'STUDENT', 3, '小王', '智能合约的部署流程不太明白', 1, '2026-06-09 16:45:00'),
 (5, 'STUDENT', 5, '小赵', '赵老师，AI实验的代码报错了，能帮忙看看吗？', 0, '2026-06-11 11:00:00');
+
+-- (25) 学习进度记录表 learning_progress
+CREATE TABLE `learning_progress` (
+    `progress_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` INT NOT NULL COMMENT '学生ID(user表uid)',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `course_id` INT NOT NULL COMMENT '教学内容ID(course表cid)',
+    `course_title` VARCHAR(255) COMMENT '教学内容名称(冗余)',
+    `is_completed` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已学完：0未完成/1已完成',
+    `completed_at` DATETIME COMMENT '完成时间(标记已学完的时间)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_student_course` (`student_id`, `course_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_course_id` (`course_id`),
+    INDEX `idx_is_completed` (`is_completed`),
+    INDEX `idx_completed_at` (`completed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学习进度记录表';
+
+-- Learning progress sample data
+INSERT INTO `learning_progress` (`student_id`, `student_name`, `course_id`, `course_title`, `is_completed`, `completed_at`) VALUES
+(1, '小明', 1, 'Java第1章：基础简介', 1, '2026-06-01 09:00:00'),
+(1, '小明', 2, 'Java第2章：数据类型', 1, '2026-06-02 10:30:00'),
+(1, '小明', 3, 'Java第3章：控制流', 1, '2026-06-03 14:20:00'),
+(1, '小明', 4, 'Java第4章：类与对象', 1, '2026-06-05 11:00:00'),
+(1, '小明', 5, 'Java第5章：常用类', 1, '2026-06-07 16:45:00'),
+(1, '小明', 9, '数据库第1章：绪论', 1, '2026-06-08 09:15:00'),
+(1, '小明', 10, '数据库第2章：关系模型', 1, '2026-06-09 13:30:00'),
+(1, '小明', 6, 'Java第6章：集合框架', 0, NULL),
+(2, '小红', 1, 'Java第1章：基础简介', 1, '2026-06-01 08:30:00'),
+(2, '小红', 2, 'Java第2章：数据类型', 1, '2026-06-03 10:00:00'),
+(2, '小红', 13, '网络第1章：概述', 1, '2026-06-05 14:00:00'),
+(2, '小红', 3, 'Java第3章：控制流', 0, NULL),
+(3, '小王', 1, 'Java第1章：基础简介', 1, '2026-05-28 09:00:00'),
+(3, '小王', 2, 'Java第2章：数据类型', 1, '2026-05-29 10:00:00'),
+(3, '小王', 3, 'Java第3章：控制流', 1, '2026-05-30 11:00:00'),
+(3, '小王', 4, 'Java第4章：类与对象', 1, '2026-05-31 14:00:00'),
+(3, '小王', 5, 'Java第5章：常用类', 1, '2026-06-01 09:00:00'),
+(3, '小王', 6, 'Java第6章：集合框架', 1, '2026-06-02 10:00:00'),
+(3, '小王', 7, 'Java第7章：IO流', 1, '2026-06-03 11:00:00'),
+(3, '小王', 8, 'Java第8章：多线程', 1, '2026-06-04 14:00:00'),
+(3, '小王', 9, '数据库第1章：绪论', 1, '2026-06-05 09:00:00'),
+(3, '小王', 10, '数据库第2章：关系模型', 1, '2026-06-06 10:00:00'),
+(3, '小王', 11, '数据库第3章：SQL语言', 1, '2026-06-07 11:00:00'),
+(3, '小王', 12, '数据库第4章：规范化', 1, '2026-06-08 14:00:00'),
+(3, '小王', 13, '网络第1章：概述', 1, '2026-06-09 09:00:00'),
+(3, '小王', 14, '网络第2章：物理层', 1, '2026-06-10 10:00:00'),
+(3, '小王', 15, '网络第3章：链路层', 1, '2026-06-11 11:00:00'),
+(3, '小王', 16, '网络第4章：网络层', 1, '2026-06-12 09:00:00'),
+(5, '小赵', 1, 'Java第1章：基础简介', 1, '2026-06-03 09:00:00'),
+(5, '小赵', 9, '数据库第1章：绪论', 1, '2026-06-05 10:00:00'),
+(5, '小赵', 17, 'OS第1章：概述', 1, '2026-06-07 11:00:00'),
+(5, '小赵', 2, 'Java第2章：数据类型', 0, NULL);

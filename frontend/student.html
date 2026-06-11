@@ -35,6 +35,7 @@
                     <li class="nav-link px-3" role="button" onclick="location.href='elective-student.html'">选课中心</li>
                     <li class="nav-link px-3" role="button" onclick="location.href='signin-student.html'">签到中心</li>
                     <li class="nav-link px-3" role="button" onclick="location.href='message-student.html'">站内私信</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='progress-student.html'">学习进度</li>
                 </ul>
                 <div class="d-flex align-items-center">
                     <div class="dropdown me-3">
@@ -89,6 +90,17 @@
                             <p id="userDesc" class="small"></p>
                         </div>
                     </div>
+                    <div class="card p-4 mt-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-bar-chart-steps text-primary me-2"></i>学习进度</h6>
+                        <div style="height:12px;border-radius:6px;background:#e9ecef;overflow:hidden;" class="mb-2">
+                            <div id="homeProgressBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#4e73df,#1cc88a);transition:width 0.6s ease;width:0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span id="homeProgressText">已学完 0 / 0 项</span>
+                            <span id="homeProgressPct" class="fw-bold">0%</span>
+                        </div>
+                        <a href="progress-student.html" class="btn btn-sm btn-outline-primary w-100 mt-3">查看详情</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -112,7 +124,10 @@
         <!-- Teaching Content Section -->
         <div id="teaching-section" class="section d-none">
             <div class="card p-4">
-                <h5 class="fw-bold mb-4">教学内容列表</h5>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">教学内容列表</h5>
+                    <a href="progress-student.html" class="btn btn-sm btn-outline-primary"><i class="bi bi-bar-chart-steps me-1"></i>查看学习进度</a>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -120,6 +135,7 @@
                                 <th>名称</th>
                                 <th>摘要</th>
                                 <th>附件</th>
+                                <th>学习状态</th>
                             </tr>
                         </thead>
                         <tbody id="teaching-list"></tbody>
@@ -291,15 +307,60 @@
             const list = document.getElementById('teaching-list');
             try {
                 const data = await api.request('/course/list');
-                list.innerHTML = data.map(c => `
-                    <tr>
-                        <td>${c.ctitle}</td>
+                let progressMap = {};
+                try {
+                    const progressData = await api.request(`/progress/courses?studentId=${session.user.uid}`);
+                    progressData.forEach(p => { progressMap[p.courseId] = p; });
+                } catch (e) { }
+
+                list.innerHTML = data.map(c => {
+                    const p = progressMap[c.cid] || {};
+                    const isCompleted = p.isCompleted === 1;
+                    const completedBadge = isCompleted
+                        ? '<span class="badge bg-success me-2"><i class="bi bi-check-circle-fill"></i> 已学完</span>'
+                        : '<span class="badge bg-light text-muted border me-2"><i class="bi bi-circle"></i> 未学完</span>';
+                    const actionBtn = isCompleted
+                        ? `<button class="btn btn-sm btn-outline-warning" onclick="toggleTeachingProgress(${c.cid}, false)"><i class="bi bi-x-circle me-1"></i>取消完成</button>`
+                        : `<button class="btn btn-sm btn-primary" onclick="toggleTeachingProgress(${c.cid}, true)"><i class="bi bi-check-circle me-1"></i>标记已学完</button>`;
+                    const timeStr = p.completedAt ? new Date(p.completedAt).toLocaleString('zh-CN') : '';
+
+                    return `<tr>
+                        <td>${completedBadge}${c.ctitle}</td>
                         <td class="small text-muted">${c.ccontent}</td>
                         <td>
                             ${c.efile ? `<a href="/uploads/${c.efile}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-eye"></i> 查看内容</a>` : '<span class="text-muted small">暂无附件</span>'}
                         </td>
-                    </tr>
-                `).join('');
+                        <td>${actionBtn}</td>
+                    </tr>`;
+                }).join('');
+            } catch (err) { }
+        }
+
+        async function toggleTeachingProgress(courseId, markCompleted) {
+            try {
+                const endpoint = markCompleted ? '/progress/mark-completed' : '/progress/mark-uncompleted';
+                await api.request(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        studentId: session.user.uid,
+                        courseId: courseId
+                    })
+                });
+                api.showToast(markCompleted ? '已标记为学完' : '已取消学完标记', 'success');
+                loadTeaching();
+                loadHomeProgress();
+            } catch (err) {
+                api.showToast('操作失败', 'danger');
+            }
+        }
+
+        async function loadHomeProgress() {
+            try {
+                const res = await api.request(`/progress/personal?studentId=${session.user.uid}`);
+                const p = res.progress;
+                document.getElementById('homeProgressBar').style.width = p.percentage + '%';
+                document.getElementById('homeProgressText').innerText = `已学完 ${p.completedCount} / ${p.totalCourses} 项`;
+                document.getElementById('homeProgressPct').innerText = p.percentage + '%';
             } catch (err) { }
         }
 
@@ -557,6 +618,7 @@
 
         loadNews();
         refreshUnreadCount();
+        loadHomeProgress();
     </script>
 </body>
 

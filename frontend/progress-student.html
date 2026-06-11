@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习进度 - SchoolSystemC02</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .progress-bar-custom {
+            height: 24px;
+            border-radius: 12px;
+            background: #e9ecef;
+            overflow: hidden;
+        }
+        .progress-bar-custom .fill {
+            height: 100%;
+            border-radius: 12px;
+            background: linear-gradient(90deg, #4e73df, #1cc88a);
+            transition: width 0.6s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            min-width: 40px;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 30px;
+            border-left: 3px solid #4e73df;
+            margin-bottom: 0;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 4px;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #4e73df;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 2px #4e73df;
+        }
+        .course-card {
+            border: 1px solid #e3e6f0;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            transition: all 0.2s;
+        }
+        .course-card:hover {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58,59,69,.15);
+            transform: translateY(-1px);
+        }
+        .course-card.completed {
+            border-left: 4px solid #1cc88a;
+            background: #f0fdf4;
+        }
+        .course-card.uncompleted {
+            border-left: 4px solid #e3e6f0;
+        }
+        .stat-card {
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            color: #fff;
+        }
+        .stat-card.primary { background: linear-gradient(135deg, #4e73df, #224abe); }
+        .stat-card.success { background: linear-gradient(135deg, #1cc88a, #13855c); }
+        .stat-card.warning { background: linear-gradient(135deg, #f6c23e, #d4a017); }
+        .nav-back {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .nav-back:hover { color: var(--primary-color) !important; }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="student.html">SchoolSystem</a>
+            <div class="d-flex align-items-center">
+                <span id="userInfo" class="me-3 text-muted small"></span>
+                <a href="student.html" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-arrow-left"></i> 返回学生中心
+                </a>
+                <button class="btn btn-outline-danger btn-sm" onclick="api.clearSession()">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold"><i class="bi bi-bar-chart-steps text-primary me-2"></i>我的学习进度</h4>
+            <div>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadAllData()">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                </button>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stat-card primary">
+                    <h2 id="totalCourses" class="fw-bold mb-1">0</h2>
+                    <small>教学内容总数</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card success">
+                    <h2 id="completedCount" class="fw-bold mb-1">0</h2>
+                    <small>已学完</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card warning">
+                    <h2 id="uncompletedCount" class="fw-bold mb-1">0</h2>
+                    <small>未学完</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <h6 class="fw-bold mb-3">总体学习进度</h6>
+            <div class="progress-bar-custom mb-2">
+                <div class="fill" id="progressBar" style="width: 0%">0%</div>
+            </div>
+            <div class="d-flex justify-content-between small text-muted">
+                <span>已学完 <strong id="completedText">0</strong> 项</span>
+                <span>完成率 <strong id="percentageText">0%</strong></span>
+                <span>共 <strong id="totalText">0</strong> 项教学内容</span>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs mb-4" id="progressTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#all-tab" type="button">
+                    <i class="bi bi-list-check me-1"></i>全部内容
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#completed-tab" type="button">
+                    <i class="bi bi-check-circle me-1 text-success"></i>已学完
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#uncompleted-tab" type="button">
+                    <i class="bi bi-circle me-1 text-muted"></i>未学完
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#timeline-tab" type="button">
+                    <i class="bi bi-clock-history me-1 text-primary"></i>学习轨迹
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="all-tab">
+                <div id="allCourseList" class="row g-3"></div>
+            </div>
+            <div class="tab-pane fade" id="completed-tab">
+                <div id="completedList" class="row g-3"></div>
+            </div>
+            <div class="tab-pane fade" id="uncompleted-tab">
+                <div id="uncompletedList" class="row g-3"></div>
+            </div>
+            <div class="tab-pane fade" id="timeline-tab">
+                <div class="card p-4">
+                    <h6 class="fw-bold mb-4"><i class="bi bi-clock-history me-2 text-primary"></i>学习轨迹（按完成时间倒序）</h6>
+                    <div id="timelineList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'student') location.href = 'index.html';
+        document.getElementById('userInfo').innerText = `欢迎，${session.user.username}`;
+
+        let allCoursesData = [];
+
+        async function loadAllData() {
+            try {
+                const progressRes = await api.request(`/progress/personal?studentId=${session.user.uid}`);
+                const progress = progressRes.progress;
+                document.getElementById('totalCourses').innerText = progress.totalCourses;
+                document.getElementById('completedCount').innerText = progress.completedCount;
+                document.getElementById('uncompletedCount').innerText = progress.uncompletedCount;
+                document.getElementById('progressBar').style.width = progress.percentage + '%';
+                document.getElementById('progressBar').innerText = progress.percentage + '%';
+                document.getElementById('completedText').innerText = progress.completedCount;
+                document.getElementById('percentageText').innerText = progress.percentage + '%';
+                document.getElementById('totalText').innerText = progress.totalCourses;
+
+                allCoursesData = await api.request(`/progress/courses?studentId=${session.user.uid}`);
+                renderAllCourses();
+                renderCompletedCourses();
+                renderUncompletedCourses();
+
+                const timeline = await api.request(`/progress/completed-timeline?studentId=${session.user.uid}`);
+                renderTimeline(timeline);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderCourseCard(item, showMark) {
+            const isCompleted = item.isCompleted === 1;
+            const statusClass = isCompleted ? 'completed' : 'uncompleted';
+            const badge = isCompleted
+                ? '<span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>已学完</span>'
+                : '<span class="badge bg-light text-muted border"><i class="bi bi-circle me-1"></i>未学完</span>';
+            const timeStr = item.completedAt ? new Date(item.completedAt).toLocaleString('zh-CN') : '';
+            const btnHtml = showMark ? (isCompleted
+                ? `<button class="btn btn-sm btn-outline-warning" onclick="toggleProgress(${item.courseId}, false)"><i class="bi bi-x-circle me-1"></i>取消完成</button>`
+                : `<button class="btn btn-sm btn-primary" onclick="toggleProgress(${item.courseId}, true)"><i class="bi bi-check-circle me-1"></i>标记已学完</button>`
+            ) : '';
+
+            return `
+                <div class="col-md-6">
+                    <div class="course-card ${statusClass}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-1">${item.courseTitle}</h6>
+                                <p class="small text-muted mb-0">${item.courseContent || ''}</p>
+                            </div>
+                            ${badge}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted">
+                                ${isCompleted && timeStr ? '<i class="bi bi-clock me-1"></i>完成于 ' + timeStr : ''}
+                                ${item.efile ? '<a href="/uploads/' + item.efile + '" target="_blank" class="me-3"><i class="bi bi-file-earmark-text me-1"></i>查看附件</a>' : ''}
+                            </small>
+                            ${btnHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAllCourses() {
+            const list = document.getElementById('allCourseList');
+            if (allCoursesData.length === 0) {
+                list.innerHTML = '<div class="col-12 text-center py-5 text-muted">暂无教学内容</div>';
+                return;
+            }
+            list.innerHTML = allCoursesData.map(item => renderCourseCard(item, true)).join('');
+        }
+
+        function renderCompletedCourses() {
+            const list = document.getElementById('completedList');
+            const completed = allCoursesData.filter(item => item.isCompleted === 1);
+            if (completed.length === 0) {
+                list.innerHTML = '<div class="col-12 text-center py-5 text-muted">暂无已学完的教学内容</div>';
+                return;
+            }
+            list.innerHTML = completed.map(item => renderCourseCard(item, true)).join('');
+        }
+
+        function renderUncompletedCourses() {
+            const list = document.getElementById('uncompletedList');
+            const uncompleted = allCoursesData.filter(item => item.isCompleted === 0);
+            if (uncompleted.length === 0) {
+                list.innerHTML = '<div class="col-12 text-center py-5 text-muted">全部内容已学完！🎉</div>';
+                return;
+            }
+            list.innerHTML = uncompleted.map(item => renderCourseCard(item, true)).join('');
+        }
+
+        function renderTimeline(timeline) {
+            const list = document.getElementById('timelineList');
+            if (!timeline || timeline.length === 0) {
+                list.innerHTML = '<div class="text-center py-5 text-muted">暂无学习记录，快去标记已学完的内容吧！</div>';
+                return;
+            }
+            list.innerHTML = timeline.map((item, idx) => {
+                const timeStr = item.completed_at ? new Date(item.completed_at).toLocaleString('zh-CN') : '';
+                return `
+                    <div class="timeline-item pb-4">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="fw-bold mb-1">${item.course_title}</h6>
+                                <small class="text-muted"><i class="bi bi-clock me-1"></i>${timeStr}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-warning" onclick="toggleProgress(${item.course_id}, false)">
+                                <i class="bi bi-x-circle me-1"></i>取消完成
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function toggleProgress(courseId, markCompleted) {
+            try {
+                const endpoint = markCompleted ? '/progress/mark-completed' : '/progress/mark-uncompleted';
+                await api.request(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        studentId: session.user.uid,
+                        courseId: courseId
+                    })
+                });
+                api.showToast(markCompleted ? '已标记为学完' : '已取消学完标记', 'success');
+                loadAllData();
+            } catch (err) {
+                api.showToast('操作失败，请重试', 'danger');
+            }
+        }
+
+        loadAllData();
+    </script>
+</body>
+
+</html>

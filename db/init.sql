@@ -629,3 +629,60 @@ CREATE TABLE `sign_in_record` (
     INDEX `idx_student_id` (`student_id`),
     INDEX `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到记录表';
+
+-- (23) 私信会话表 conversation
+CREATE TABLE `conversation` (
+    `conversation_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` INT NOT NULL COMMENT '学生ID(user表uid)',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `teacher_id` INT NOT NULL COMMENT '教师ID(teacher表tid)',
+    `teacher_name` VARCHAR(50) COMMENT '教师姓名(冗余)',
+    `last_message` TEXT COMMENT '最后一条消息预览(冗余)',
+    `last_message_time` DATETIME COMMENT '最后消息时间(用于排序)',
+    `student_unread_count` INT NOT NULL DEFAULT 0 COMMENT '学生未读消息数',
+    `teacher_unread_count` INT NOT NULL DEFAULT 0 COMMENT '教师未读消息数',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_student_teacher` (`student_id`, `teacher_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_teacher_id` (`teacher_id`),
+    INDEX `idx_last_message_time` (`last_message_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='私信会话表';
+
+-- (24) 私信消息表 message
+CREATE TABLE `message` (
+    `message_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `conversation_id` INT NOT NULL COMMENT '会话ID',
+    `sender_type` VARCHAR(20) NOT NULL COMMENT '发送方类型：STUDENT/TEACHER',
+    `sender_id` INT NOT NULL COMMENT '发送方ID',
+    `sender_name` VARCHAR(50) COMMENT '发送方姓名(冗余)',
+    `content` TEXT NOT NULL COMMENT '消息内容',
+    `is_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读：0未读/1已读',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX `idx_conversation_id` (`conversation_id`),
+    INDEX `idx_created_at` (`created_at`),
+    INDEX `idx_sender` (`sender_type`, `sender_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='私信消息表';
+
+-- Conversation sample data
+INSERT INTO `conversation` (`student_id`, `student_name`, `teacher_id`, `teacher_name`, `last_message`, `last_message_time`, `student_unread_count`, `teacher_unread_count`) VALUES
+(1, '小明', 1, '张老师', '老师，请问Java多线程如何实现？', '2026-06-10 09:30:00', 0, 1),
+(2, '小红', 1, '张老师', '我的作业已经提交了，请查收。', '2026-06-10 14:20:00', 1, 0),
+(1, '小明', 2, '李老师', '数据库索引优化的问题想请教您', '2026-06-11 10:15:00', 0, 2),
+(3, '小王', 3, '王老师', '区块链项目有一些疑问', '2026-06-09 16:45:00', 0, 0),
+(5, '小赵', 4, '赵老师', 'AI实验的代码报错了，能帮忙看看吗？', '2026-06-11 11:00:00', 1, 1);
+
+-- Message sample data
+INSERT INTO `message` (`conversation_id`, `sender_type`, `sender_id`, `sender_name`, `content`, `is_read`, `created_at`) VALUES
+(1, 'STUDENT', 1, '小明', '张老师您好，我有关于Java的问题想请教。', 1, '2026-06-09 08:00:00'),
+(1, 'TEACHER', 1, '张老师', '你好小明，请问是什么问题？', 1, '2026-06-09 08:30:00'),
+(1, 'STUDENT', 1, '小明', '老师，请问Java多线程如何实现？', 0, '2026-06-10 09:30:00'),
+(2, 'STUDENT', 2, '小红', '张老师，我的作业已经提交了，请查收。', 0, '2026-06-10 14:20:00'),
+(3, 'STUDENT', 1, '小明', '李老师，我想问关于数据库索引的问题。', 1, '2026-06-10 09:00:00'),
+(3, 'TEACHER', 2, '李老师', '好的，你说说看。', 1, '2026-06-10 09:15:00'),
+(3, 'STUDENT', 1, '小明', '数据库索引优化的问题想请教您', 0, '2026-06-11 10:15:00'),
+(3, 'STUDENT', 1, '小明', '比如复合索引的最左前缀原则不太理解', 0, '2026-06-11 10:16:00'),
+(4, 'STUDENT', 3, '小王', '王老师，区块链项目有一些疑问', 1, '2026-06-09 16:00:00'),
+(4, 'TEACHER', 3, '王老师', '你具体哪里不清楚？', 1, '2026-06-09 16:30:00'),
+(4, 'STUDENT', 3, '小王', '智能合约的部署流程不太明白', 1, '2026-06-09 16:45:00'),
+(5, 'STUDENT', 5, '小赵', '赵老师，AI实验的代码报错了，能帮忙看看吗？', 0, '2026-06-11 11:00:00');

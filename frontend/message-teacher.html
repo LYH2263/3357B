@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>站内私信 - 教师端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: all 0.3s; }
+        .main-content { margin-left: 250px; padding: 1.5rem; transition: all 0.3s; }
+        .sidebar .nav-link { border-radius: 0.5rem; margin: 0.2rem 0; padding: 0.8rem 1rem; color: #333; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #f0f4ff; color: var(--primary-color, #0d6efd); }
+        .sidebar .nav-link i { margin-right: 10px; }
+        .conversation-list { overflow-y: auto; max-height: calc(100vh - 250px); }
+        .conversation-item { cursor: pointer; transition: background 0.2s; border-left: 3px solid transparent; }
+        .conversation-item:hover { background: #f0f4ff; }
+        .conversation-item.active { background: #e8eeff; border-left-color: var(--primary-color, #0d6efd); }
+        .chat-area { display: flex; flex-direction: column; height: calc(100vh - 250px); min-height: 400px; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem; }
+        .bubble { max-width: 70%; padding: 0.75rem 1rem; border-radius: 1rem; margin-bottom: 0.5rem; word-break: break-word; position: relative; }
+        .bubble-sent { background: #198754; color: #fff; margin-left: auto; border-bottom-right-radius: 0.25rem; }
+        .bubble-received { background: #fff; color: #333; border: 1px solid #dee2e6; margin-right: auto; border-bottom-left-radius: 0.25rem; }
+        .bubble-time { font-size: 0.7rem; opacity: 0.7; margin-top: 0.25rem; }
+        .bubble-name { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem; }
+        .unread-badge { min-width: 20px; height: 20px; font-size: 0.7rem; display: inline-flex; align-items: center; justify-content: center; }
+        .chat-input-area { border-top: 1px solid #dee2e6; padding: 0.75rem; background: #fff; border-radius: 0 0 0.5rem 0.5rem; }
+        .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: #adb5bd; }
+        .preview-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar d-flex flex-column p-3 bg-white shadow-sm">
+        <a href="teacher.html" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none p-2">
+            <span class="fs-4 fw-bold text-primary">管理后台</span>
+        </a>
+        <hr>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-arrow-left"></i>返回主页</a></li>
+            <li class="mt-2"><a href="#" class="nav-link active"><i class="bi bi-chat-heart"></i>站内私信</a></li>
+        </ul>
+        <hr>
+        <div class="p-2">
+            <span id="userInfo" class="small text-muted d-block mb-2"></span>
+            <button class="btn btn-outline-danger w-100" onclick="api.clearSession()">登出</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold"><i class="bi bi-chat-heart me-2"></i>站内私信</h4>
+            <div id="totalUnreadArea">
+                <span class="badge bg-danger" id="totalUnreadBadge" style="display:none;">0 条未读</span>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h6 class="fw-bold mb-0"><i class="bi bi-chat-left-text me-2"></i>会话列表</h6>
+                    </div>
+                    <div id="conversationList" class="list-group list-group-flush conversation-list">
+                        <div class="text-center py-5 text-muted">
+                            <div class="spinner-border text-primary spinner-border-sm"></div>
+                            <div class="mt-2 small">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div id="chatPanel" class="card border-0 shadow-sm">
+                    <div id="emptyChat" class="empty-state flex-column" style="min-height:500px;">
+                        <i class="bi bi-chat-dots fs-1 mb-3"></i>
+                        <p class="mb-0">选择一个会话查看消息</p>
+                    </div>
+                    <div id="chatContent" class="d-none">
+                        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3">
+                            <div class="d-flex align-items-center">
+                                <img id="chatAvatar" src="" class="rounded-circle me-2" style="width:36px;height:36px;object-fit:cover;">
+                                <div>
+                                    <h6 id="chatName" class="fw-bold mb-0"></h6>
+                                    <small id="chatInfo" class="text-muted"></small>
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="refreshMessages()">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <div class="chat-input-area">
+                            <div class="input-group">
+                                <input type="text" id="messageInput" class="form-control" placeholder="输入消息..." maxlength="500"
+                                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}">
+                                <button class="btn btn-success" onclick="sendMessage()">
+                                    <i class="bi bi-send me-1"></i>发送
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'teacher') location.href = 'index.html';
+
+        document.getElementById('userInfo').innerText = session.user.tname;
+        let currentConversationId = null;
+        let conversations = [];
+        let currentPage = 1;
+        let totalMessages = 0;
+        const pageSize = 20;
+
+        async function loadConversations() {
+            try {
+                conversations = await api.request(`/message/conversation/list/teacher?teacherId=${session.user.tid}`);
+                renderConversations();
+                updateTotalUnread();
+            } catch (err) {}
+        }
+
+        function updateTotalUnread() {
+            let total = 0;
+            conversations.forEach(c => { total += (c.teacherUnreadCount || 0); });
+            const badge = document.getElementById('totalUnreadBadge');
+            if (total > 0) {
+                badge.style.display = 'inline-block';
+                badge.innerText = total + ' 条未读';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function renderConversations() {
+            const list = document.getElementById('conversationList');
+            if (conversations.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-chat-left fs-3 mb-2 d-block"></i>
+                        <p class="small mb-0">暂无会话</p>
+                    </div>`;
+                return;
+            }
+            list.innerHTML = conversations.map(c => {
+                const isActive = c.conversationId === currentConversationId;
+                const unread = c.teacherUnreadCount || 0;
+                const time = c.lastMessageTime ? formatTime(c.lastMessageTime) : '';
+                return `
+                    <div class="list-group-item list-group-item-action conversation-item px-3 py-3 ${isActive ? 'active' : ''}"
+                         onclick="openConversation(${c.conversationId})">
+                        <div class="d-flex align-items-center">
+                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.studentName)}&background=random&size=36"
+                                 class="rounded-circle me-3" style="width:40px;height:40px;">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold small">${c.studentName}</span>
+                                    <small class="text-muted">${time}</small>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="text-muted small preview-text">${c.lastMessage || '暂无消息'}</span>
+                                    ${unread > 0 ? `<span class="badge bg-danger unread-badge">${unread > 99 ? '99+' : unread}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function openConversation(conversationId) {
+            currentConversationId = conversationId;
+            currentPage = 1;
+            renderConversations();
+
+            document.getElementById('emptyChat').classList.add('d-none');
+            document.getElementById('chatContent').classList.remove('d-none');
+
+            const conv = conversations.find(c => c.conversationId === conversationId);
+            if (conv) {
+                document.getElementById('chatAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.studentName)}&background=random`;
+                document.getElementById('chatName').innerText = conv.studentName;
+                document.getElementById('chatInfo').innerText = '学生';
+            }
+
+            await loadMessages();
+            markAsRead();
+        }
+
+        async function loadMessages() {
+            if (!currentConversationId) return;
+            try {
+                const res = await api.request(`/message/list?conversationId=${currentConversationId}&page=${currentPage}&size=${pageSize}&readerRole=TEACHER`);
+                const messages = res.messages || [];
+                totalMessages = res.total || 0;
+                renderMessages(messages);
+            } catch (err) {}
+        }
+
+        function renderMessages(messages) {
+            const container = document.getElementById('chatMessages');
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-5 small">暂无消息</div>';
+                return;
+            }
+            container.innerHTML = messages.map(m => {
+                const isSent = m.senderType === 'TEACHER';
+                const time = m.createdAt ? formatTimeFull(m.createdAt) : '';
+                return `
+                    <div class="d-flex ${isSent ? 'justify-content-end' : 'justify-content-start'} mb-2">
+                        <div class="bubble ${isSent ? 'bubble-sent' : 'bubble-received'}">
+                            ${!isSent ? `<div class="bubble-name">${m.senderName}</div>` : ''}
+                            <div>${escapeHtml(m.content)}</div>
+                            <div class="bubble-time ${isSent ? 'text-end' : ''}">${time}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            if (!content || !currentConversationId) return;
+
+            input.value = '';
+            try {
+                const res = await api.request('/message/send', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        conversationId: currentConversationId,
+                        senderType: 'TEACHER',
+                        senderId: session.user.tid,
+                        content: content
+                    })
+                });
+                if (res.success) {
+                    await loadMessages();
+                    await loadConversations();
+                }
+            } catch (err) {}
+        }
+
+        async function markAsRead() {
+            if (!currentConversationId) return;
+            try {
+                await api.request('/message/mark-read', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        conversationId: currentConversationId,
+                        readerRole: 'TEACHER'
+                    })
+                });
+                await loadConversations();
+            } catch (err) {}
+        }
+
+        async function refreshMessages() {
+            await loadMessages();
+            await markAsRead();
+        }
+
+        function formatTime(dt) {
+            if (!dt) return '';
+            const d = new Date(dt.replace('T', ' '));
+            const now = new Date();
+            const diff = now - d;
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            if (diff < 172800000) return '昨天';
+            return (d.getMonth() + 1) + '/' + d.getDate();
+        }
+
+        function formatTimeFull(dt) {
+            if (!dt) return '';
+            const d = new Date(dt.replace('T', ' '));
+            return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+                   d.getHours().toString().padStart(2, '0') + ':' +
+                   d.getMinutes().toString().padStart(2, '0');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        setInterval(() => {
+            if (currentConversationId) {
+                loadMessages();
+                markAsRead();
+            }
+            loadConversations();
+        }, 15000);
+
+        loadConversations();
+    </script>
+</body>
+
+</html>

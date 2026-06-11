@@ -529,3 +529,55 @@ INSERT INTO `homework_submission` (`homework_id`, `student_id`, `student_name`, 
 (1, 2, '小红', 'S2021002', '/uploads/homework1_stu2.docx', 'Java第1章作业-小红.docx', 2, 'GRADED', 92.50, '完成很好，代码规范，继续保持！', '2026-06-11 10:20:00', '2026-06-11 16:00:00', 1, '张老师'),
 (1, 3, '小王', 'S2021003', NULL, NULL, 0, 'NOT_SUBMITTED', NULL, NULL, NULL, NULL, NULL, NULL),
 (3, 5, '小赵', 'S2021005', '/uploads/homework3_stu5.pdf', '数据分析报告-小赵.pdf', 1, 'REJECTED', NULL, '报告结构不完整，请补充数据可视化部分，在截止前重新提交。', '2026-06-10 14:00:00', '2026-06-10 18:00:00', 5, '孙老师');
+
+-- (19) 可选课程表 elective_course
+CREATE TABLE `elective_course` (
+    `course_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `course_name` VARCHAR(255) NOT NULL COMMENT '课程名称',
+    `description` TEXT COMMENT '课程简介',
+    `teacher_id` INT NOT NULL COMMENT '授课教师ID',
+    `teacher_name` VARCHAR(50) COMMENT '授课教师姓名',
+    `capacity` INT NOT NULL DEFAULT 30 COMMENT '容量上限',
+    `enrolled_count` INT NOT NULL DEFAULT 0 COMMENT '已选人数',
+    `enroll_start_time` DATETIME NOT NULL COMMENT '选课开始时间',
+    `enroll_end_time` DATETIME NOT NULL COMMENT '选课结束时间',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'OPEN' COMMENT '状态：OPEN开放选课/CLOSED已截止',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_teacher_id` (`teacher_id`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_enroll_time` (`enroll_start_time`, `enroll_end_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='可选课程表';
+
+-- (20) 选课记录表 course_enrollment
+CREATE TABLE `course_enrollment` (
+    `enrollment_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `course_id` INT NOT NULL COMMENT '课程ID',
+    `student_id` INT NOT NULL COMMENT '学生ID',
+    `student_name` VARCHAR(50) COMMENT '学生姓名',
+    `student_no` VARCHAR(50) COMMENT '学号',
+    `class_name` VARCHAR(100) COMMENT '班级名称',
+    `enroll_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '选课时间',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ENROLLED' COMMENT '状态：ENROLLED已选/WITHDRAWN已退选',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_course_student` (`course_id`, `student_id`),
+    INDEX `idx_course_id` (`course_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='选课记录表';
+
+-- Elective courses sample data
+INSERT INTO `elective_course` (`course_name`, `description`, `teacher_id`, `teacher_name`, `capacity`, `enrolled_count`, `enroll_start_time`, `enroll_end_time`, `status`) VALUES
+('人工智能导论', '介绍人工智能的基本概念、发展历程、主要技术方向和应用场景，包括机器学习、深度学习、自然语言处理等前沿领域。', 4, '赵老师', 50, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('Python数据分析', '学习使用Python进行数据处理与分析，掌握NumPy、Pandas、Matplotlib等库的使用，培养数据思维与分析能力。', 5, '孙老师', 40, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('区块链技术与应用', '深入了解区块链技术原理，包括共识机制、智能合约、分布式账本等，并探讨其在各行业的实际应用。', 3, '王老师', 30, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('Web前端开发实战', '系统学习HTML5、CSS3、JavaScript及主流前端框架，掌握响应式设计和现代前端开发流程。', 28, '华老师', 45, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('算法设计与竞赛', '深入学习常用算法与数据结构，训练编程竞赛思维，提升代码能力与问题解决能力。', 2, '李老师', 35, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('网络安全基础', '介绍网络安全基本概念、常见攻击与防御技术、加密算法、防火墙配置等内容，培养安全意识。', 6, '周老师', 40, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('移动应用开发', '学习Android/iOS移动应用开发，掌握移动应用架构设计、UI开发、数据存储等核心技术。', 7, '吴老师', 30, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('云计算与容器技术', '学习云计算基础、Docker容器、Kubernetes编排、微服务架构等云原生技术。', 26, '曹老师', 35, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('软件测试与质量保证', '系统学习软件测试理论与方法，包括黑盒测试、白盒测试、自动化测试工具及质量管理流程。', 20, '许老师', 40, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('UI/UX设计基础', '学习用户界面与用户体验设计的基本原理、设计规范、原型工具使用，培养设计思维。', 29, '金老师', 25, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('机器学习实战', '深入学习监督学习、非监督学习等经典机器学习算法，并通过项目实践提升应用能力。', 15, '韩老师', 30, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN'),
+('大数据技术栈', '学习Hadoop、Spark、Flink等大数据处理框架，掌握海量数据存储与分析技术。', 27, '严老师', 35, 0, '2026-06-01 00:00:00', '2026-12-31 23:59:59', 'OPEN');

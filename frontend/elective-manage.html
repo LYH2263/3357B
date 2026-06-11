@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>选课管理 - 教师端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+        .main-content { margin-left: 250px; padding: 2rem; }
+        .nav-link { border-radius: 0.5rem; margin: 0.2rem 0; padding: 0.8rem 1rem; color: #333; }
+        .nav-link:hover, .nav-link.active { background: #f0f4ff; color: var(--primary-color); }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 500; }
+        .status-open { background: #d3f9d8; color: #2b8a3e; }
+        .status-closed { background: #f1f3f5; color: #868e96; }
+        .course-card { transition: all 0.2s; border-left: 4px solid var(--primary-color); }
+        .course-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .progress-bar-custom { height: 8px; border-radius: 4px; }
+        .capacity-full { color: #c92a2a; }
+        .capacity-normal { color: #2b8a3e; }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column p-3 bg-light">
+        <a href="teacher.html" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none p-2">
+            <span class="fs-4 fw-bold text-primary">管理后台</span>
+        </a>
+        <hr>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-people"></i>学生管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-book"></i>课程介绍</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-layers"></i>班级管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-person-badge"></i>教师管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-file-earmark-text"></i>教学内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-vial"></i>实验内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-chat-dots"></i>互动交流</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-newspaper"></i>技术动态</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-megaphone"></i>公告通知</a></li>
+            <li><a href="exam-manage.html" class="nav-link"><i class="bi bi-clipboard-check"></i>在线测验</a></li>
+            <li><a href="homework-manage.html" class="nav-link"><i class="bi bi-journal-text"></i>作业管理</a></li>
+            <li><a href="#" class="nav-link active"><i class="bi bi-calendar-check"></i>选课管理</a></li>
+        </ul>
+        <hr>
+        <div class="p-2">
+            <button class="btn btn-outline-danger w-100" onclick="api.clearSession()">登出</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="listView">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold">选课管理</h4>
+                <button class="btn btn-primary" onclick="showCreateModal()"><i class="bi bi-plus-lg"></i> 发布课程</button>
+            </div>
+            <div class="card p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>课程名称</th>
+                                <th>授课教师</th>
+                                <th>容量</th>
+                                <th>已选/剩余</th>
+                                <th>选课时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="courseTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="enrollmentListView" class="d-none">
+            <div class="d-flex align-items-center mb-4">
+                <button class="btn btn-outline-secondary me-3" onclick="backToList()"><i class="bi bi-arrow-left"></i> 返回列表</button>
+                <div>
+                    <h5 class="fw-bold mb-0" id="detailCourseName"></h5>
+                    <p class="text-muted small mb-0" id="detailCourseDesc"></p>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">容量上限</div>
+                        <div class="fs-3 fw-bold text-primary" id="statCapacity">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">已选人数</div>
+                        <div class="fs-3 fw-bold text-success" id="statEnrolled">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">剩余名额</div>
+                        <div class="fs-3 fw-bold text-info" id="statRemaining">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 text-center">
+                        <div class="text-muted small">选课状态</div>
+                        <div id="statStatus"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">选课名单</h6>
+                    <button class="btn btn-outline-primary btn-sm" onclick="exportEnrollments()">
+                        <i class="bi bi-download"></i> 导出名单
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>序号</th>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>班级</th>
+                                <th>选课时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="enrollmentTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="emptyEnrollment" class="text-center py-5 text-muted d-none">
+                    <i class="bi bi-inbox fs-1 mb-2"></i>
+                    <p>暂无学生选课</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="createModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">发布可选课程</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">课程名称 <span class="text-danger">*</span></label>
+                        <input type="text" id="ec_courseName" class="form-control" placeholder="请输入课程名称">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">课程简介 <span class="text-danger">*</span></label>
+                        <textarea id="ec_description" class="form-control" rows="4" placeholder="请输入课程简介"></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">容量上限 <span class="text-danger">*</span></label>
+                            <input type="number" id="ec_capacity" class="form-control" value="30" min="1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">授课教师 <span class="text-danger">*</span></label>
+                            <input type="text" id="ec_teacherName" class="form-control" placeholder="请输入授课教师姓名">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">选课开始时间 <span class="text-danger">*</span></label>
+                            <input type="datetime-local" id="ec_enrollStartTime" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">选课结束时间 <span class="text-danger">*</span></label>
+                            <input type="datetime-local" id="ec_enrollEndTime" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="createCourse()">发布</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-body text-center p-4">
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3"></i>
+                    <h5 class="fw-bold">确认删除？</h5>
+                    <p class="text-muted small">删除后选课记录也将被清除，此操作不可撤销。</p>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" data-bs-dismiss="modal">取消</button>
+                        <button class="btn btn-danger flex-grow-1" onclick="confirmDelete()">确定删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const session = api.getSession();
+        if (!session.user || session.role !== 'teacher') location.href = 'index.html';
+
+        let courseList = [];
+        let currentCourseId = null;
+        let deleteCourseId = null;
+
+        function init() {
+            loadCourses();
+        }
+
+        async function loadCourses() {
+            try {
+                const data = await api.request(`/elective/teacher/list?teacherId=${session.user.tid}`);
+                courseList = data || [];
+                renderCourseTable();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderCourseTable() {
+            const tbody = document.getElementById('courseTableBody');
+            if (courseList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted">暂无课程，点击右上角发布新课程</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = courseList.map(c => {
+                const remaining = c.capacity - c.enrolledCount;
+                const isFull = remaining <= 0;
+                const statusText = c.status === 'OPEN' ? '开放选课' : '已截止';
+                const statusClass = c.status === 'OPEN' ? 'status-open' : 'status-closed';
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="fw-bold">${c.courseName}</div>
+                            <div class="text-muted small">${c.description || ''}</div>
+                        </td>
+                        <td>${c.teacherName || '-'}</td>
+                        <td>${c.capacity} 人</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="${isFull ? 'capacity-full' : 'capacity-normal'} fw-bold">
+                                    ${c.enrolledCount} / ${remaining}
+                                </span>
+                            </div>
+                            <div class="progress progress-bar-custom mt-1" style="width:100px;">
+                                <div class="progress-bar ${isFull ? 'bg-danger' : 'bg-success'}" 
+                                     style="width: ${(c.enrolledCount / c.capacity * 100).toFixed(0)}%"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="small">开始：${formatDate(c.enrollStartTime)}</div>
+                            <div class="small text-muted">结束：${formatDate(c.enrollEndTime)}</div>
+                        </td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewEnrollments(${c.courseId})">
+                                <i class="bi bi-people"></i> 名单
+                            </button>
+                            ${c.status === 'OPEN' ? `
+                                <button class="btn btn-sm btn-outline-warning" onclick="closeCourse(${c.courseId})">
+                                    <i class="bi bi-lock"></i> 截止
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-sm btn-outline-danger" onclick="showDeleteModal(${c.courseId})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showCreateModal() {
+            document.getElementById('ec_courseName').value = '';
+            document.getElementById('ec_description').value = '';
+            document.getElementById('ec_capacity').value = 30;
+            document.getElementById('ec_teacherName').value = session.user.tname || '';
+            document.getElementById('ec_enrollStartTime').value = '';
+            document.getElementById('ec_enrollEndTime').value = '';
+            new bootstrap.Modal(document.getElementById('createModal')).show();
+        }
+
+        async function createCourse() {
+            const courseName = document.getElementById('ec_courseName').value.trim();
+            const description = document.getElementById('ec_description').value.trim();
+            const capacity = parseInt(document.getElementById('ec_capacity').value);
+            const teacherName = document.getElementById('ec_teacherName').value.trim();
+            const enrollStartTime = document.getElementById('ec_enrollStartTime').value;
+            const enrollEndTime = document.getElementById('ec_enrollEndTime').value;
+
+            if (!courseName) { api.showToast('请输入课程名称', 'danger'); return; }
+            if (!description) { api.showToast('请输入课程简介', 'danger'); return; }
+            if (!capacity || capacity < 1) { api.showToast('请输入有效的容量上限', 'danger'); return; }
+            if (!teacherName) { api.showToast('请输入授课教师姓名', 'danger'); return; }
+            if (!enrollStartTime) { api.showToast('请选择选课开始时间', 'danger'); return; }
+            if (!enrollEndTime) { api.showToast('请选择选课结束时间', 'danger'); return; }
+            if (new Date(enrollStartTime) >= new Date(enrollEndTime)) {
+                api.showToast('结束时间必须晚于开始时间', 'danger'); return;
+            }
+
+            try {
+                const result = await api.request('/elective/create', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        courseName,
+                        description,
+                        teacherId: session.user.tid,
+                        teacherName,
+                        capacity,
+                        enrollStartTime,
+                        enrollEndTime
+                    })
+                });
+
+                if (result.success) {
+                    api.showToast('课程发布成功', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
+                    loadCourses();
+                } else {
+                    api.showToast(result.message || '发布失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('发布失败，请稍后重试', 'danger');
+            }
+        }
+
+        async function viewEnrollments(courseId) {
+            currentCourseId = courseId;
+            const course = courseList.find(c => c.courseId === courseId);
+            if (!course) return;
+
+            document.getElementById('detailCourseName').textContent = course.courseName;
+            document.getElementById('detailCourseDesc').textContent = course.description || '';
+            document.getElementById('statCapacity').textContent = course.capacity;
+            document.getElementById('statEnrolled').textContent = course.enrolledCount;
+            document.getElementById('statRemaining').textContent = course.capacity - course.enrolledCount;
+
+            const statusText = course.status === 'OPEN' ? '开放选课' : '已截止';
+            const statusClass = course.status === 'OPEN' ? 'status-badge status-open' : 'status-badge status-closed';
+            document.getElementById('statStatus').innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+
+            try {
+                const data = await api.request(`/elective/enrollments/${courseId}`);
+                const enrollments = data || [];
+                renderEnrollmentTable(enrollments);
+            } catch (e) {
+                console.error(e);
+            }
+
+            document.getElementById('listView').classList.add('d-none');
+            document.getElementById('enrollmentListView').classList.remove('d-none');
+        }
+
+        function renderEnrollmentTable(enrollments) {
+            const tbody = document.getElementById('enrollmentTableBody');
+            const emptyDiv = document.getElementById('emptyEnrollment');
+
+            if (enrollments.length === 0) {
+                tbody.innerHTML = '';
+                emptyDiv.classList.remove('d-none');
+                return;
+            }
+
+            emptyDiv.classList.add('d-none');
+            tbody.innerHTML = enrollments.map((e, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${e.studentNo || '-'}</td>
+                    <td>${e.studentName || '-'}</td>
+                    <td>${e.className || '-'}</td>
+                    <td>${formatDate(e.enrollTime)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function backToList() {
+            document.getElementById('enrollmentListView').classList.add('d-none');
+            document.getElementById('listView').classList.remove('d-none');
+            currentCourseId = null;
+        }
+
+        async function closeCourse(courseId) {
+            if (!confirm('确定要截止该课程的选课吗？截止后学生将无法再选课或退选。')) return;
+            try {
+                const result = await api.request(`/elective/close/${courseId}`, { method: 'POST' });
+                if (result.success) {
+                    api.showToast('已截止选课', 'success');
+                    loadCourses();
+                } else {
+                    api.showToast(result.message || '操作失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('操作失败，请稍后重试', 'danger');
+            }
+        }
+
+        function showDeleteModal(courseId) {
+            deleteCourseId = courseId;
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        async function confirmDelete() {
+            if (!deleteCourseId) return;
+            try {
+                const result = await api.request(`/elective/delete/${deleteCourseId}`, { method: 'DELETE' });
+                if (result.success) {
+                    api.showToast('删除成功', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+                    loadCourses();
+                } else {
+                    api.showToast(result.message || '删除失败', 'danger');
+                }
+            } catch (e) {
+                api.showToast('删除失败，请稍后重试', 'danger');
+            }
+        }
+
+        function exportEnrollments() {
+            if (!currentCourseId) return;
+            const url = `${api.baseUrl}/elective/export/${currentCourseId}`;
+            window.open(url, '_blank');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const h = String(date.getHours()).padStart(2, '0');
+            const min = String(date.getMinutes()).padStart(2, '0');
+            return `${y}-${m}-${d} ${h}:${min}`;
+        }
+
+        init();
+    </script>
+</body>
+</html>

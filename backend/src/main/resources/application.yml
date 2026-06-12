@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: school-system
+  main:
+    allow-circular-references: true
   servlet:
     multipart:
       max-file-size: 50MB

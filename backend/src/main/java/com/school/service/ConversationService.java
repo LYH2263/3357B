@@ -227,8 +227,9 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     }
 
     public Integer getMessageCount(Integer conversationId) {
-        return (int) messageService.lambdaQuery()
+        return messageService.lambdaQuery()
                 .eq(Message::getConversationId, conversationId)
-                .count();
+                .count()
+                .intValue();
     }
 }

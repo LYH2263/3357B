@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班级讨论区 - 学生端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .nav-link.active {
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        .post-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .post-card.pinned {
+            border-left: 4px solid #ffc107;
+            background: #fffdf5;
+        }
+        .like-btn {
+            transition: all 0.2s ease;
+        }
+        .like-btn.liked {
+            color: #dc3545 !important;
+        }
+        .like-btn:hover {
+            transform: scale(1.15);
+        }
+        .author-tag {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .author-tag.teacher {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .author-tag.student {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .reply-item {
+            border-left: 3px solid #e9ecef;
+            transition: all 0.2s ease;
+        }
+        .reply-item:hover {
+            border-left-color: var(--primary-color);
+            background: #f8f9fa;
+        }
+        .empty-state {
+            padding: 80px 20px;
+            text-align: center;
+            color: #adb5bd;
+        }
+        .back-btn {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .back-btn:hover {
+            color: var(--primary-color);
+        }
+        #detail-section { display: none; }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="student.html">SchoolSystem</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">首页</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='homework-student.html'">作业中心</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='exam-student.html'">在线测验</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='signin-student.html'">签到中心</li>
+                    <li class="nav-link px-3 active" role="button">班级讨论</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='message-student.html'">站内私信</li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span id="userInfo" class="me-3 text-muted small"></span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="api.clearSession()">登出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- 列表页 -->
+        <div id="list-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="fw-bold mb-1"><i class="bi bi-chat-left-text me-2 text-primary"></i>班级讨论区</h4>
+                    <small class="text-muted" id="classInfo">正在加载班级信息...</small>
+                </div>
+                <button class="btn btn-primary" onclick="showCreateModal()">
+                    <i class="bi bi-pencil-square me-1"></i>发布新帖
+                </button>
+            </div>
+
+            <div id="postList" class="mb-4">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border text-primary spinner-border-sm"></div>
+                    <p class="mt-2 mb-0">加载帖子列表中...</p>
+                </div>
+            </div>
+
+            <div id="pagination" class="d-flex justify-content-center"></div>
+        </div>
+
+        <!-- 详情页 -->
+        <div id="detail-section">
+            <div class="mb-4">
+                <span class="back-btn text-muted" onclick="showList()">
+                    <i class="bi bi-arrow-left me-1"></i>返回帖子列表
+                </span>
+            </div>
+
+            <div id="postDetail"></div>
+
+            <hr class="my-4">
+
+            <div class="mb-4">
+                <h6 class="fw-bold mb-3">
+                    <i class="bi bi-chat-dots me-1 text-primary"></i>全部回帖
+                    <small class="text-muted fw-normal" id="replyCountInfo">(0)</small>
+                </h6>
+                <div id="replyList">
+                    <div class="text-center py-4 text-muted">
+                        <div class="spinner-border text-primary spinner-border-sm"></div>
+                    </div>
+                </div>
+                <div id="replyPagination" class="d-flex justify-content-center mt-4"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-reply me-1 text-primary"></i>发表回帖</h6>
+                </div>
+                <div class="card-body">
+                    <textarea id="replyContent" class="form-control" rows="4" placeholder="写下你的回复..."></textarea>
+                    <div class="d-flex justify-content-end mt-3">
+                        <button class="btn btn-primary" onclick="submitReply()">
+                            <i class="bi bi-send me-1"></i>提交回复
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 发帖模态框 -->
+    <div class="modal fade" id="createPostModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-1 text-primary"></i>发布新帖</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">帖子标题 <span class="text-danger">*</span></label>
+                        <input type="text" id="postTitle" class="form-control" placeholder="请输入标题" maxlength="255">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">帖子正文 <span class="text-danger">*</span></label>
+                        <textarea id="postContent" class="form-control" rows="8" placeholder="请输入正文内容"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitCreatePost()">
+                        <i class="bi bi-send me-1"></i>发布
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let currentUser = null;
+        let currentRole = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let currentPostId = null;
+        let currentReplyPage = 1;
+        let replyTotalPages = 1;
+
+        function init() {
+            const session = api.getSession();
+            currentUser = session.user;
+            currentRole = session.role;
+
+            if (!currentUser || currentRole !== 'STUDENT') {
+                api.clearSession();
+                return;
+            }
+
+            document.getElementById('userInfo').textContent = `${currentUser.username}（${currentUser.userno}）`;
+            document.getElementById('classInfo').textContent = `${currentUser.classname} · 同班同学与任课教师可见`;
+
+            loadPostList();
+        }
+
+        function formatTime(dtStr) {
+            if (!dtStr) return '';
+            const dt = new Date(dtStr.replace(/-/g, '/'));
+            const now = new Date();
+            const diff = (now - dt) / 1000;
+            if (diff < 60) return '刚刚';
+            if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+            if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+            if (diff < 604800) return Math.floor(diff / 86400) + '天前';
+            return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        }
+
+        async function loadPostList() {
+            try {
+                const data = await api.forum.getPostList(
+                    currentUser.class_id, currentPage, 10,
+                    'STUDENT', currentUser.uid
+                );
+                totalPages = data.totalPages || 1;
+                renderPostList(data.posts || []);
+                renderPagination();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderPostList(posts) {
+            const container = document.getElementById('postList');
+            if (!posts.length) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-chat-square-text display-1"></i>
+                        <h5 class="mt-3">讨论区空空如也</h5>
+                        <p>快来发布第一个帖子，开启班级讨论吧！</p>
+                        <button class="btn btn-primary mt-2" onclick="showCreateModal()">
+                            <i class="bi bi-pencil-square me-1"></i>发布新帖
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = posts.map(p => {
+                const authorTag = p.authorType === 'TEACHER'
+                    ? '<span class="author-tag teacher">教师</span>'
+                    : '<span class="author-tag student">学生</span>';
+                const pinnedBadge = p.isPinned === 1 ? '<span class="badge bg-warning text-dark me-2"><i class="bi bi-pin-angle-fill"></i> 置顶</span>' : '';
+                const canDelete = (p.authorType === 'STUDENT' && p.authorId === currentUser.uid);
+                const sortTime = p.lastReplyAt || p.createdAt;
+                const likeClass = p.isLiked ? 'liked' : '';
+
+                return `
+                <div class="card post-card mb-3 ${p.isPinned === 1 ? 'pinned' : ''}" onclick="openPostDetail(${p.postId})">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">
+                                    ${pinnedBadge}
+                                    <span class="text-decoration-none">${p.title}</span>
+                                </h6>
+                                <p class="text-muted small mb-2" style="overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+                                    ${p.content.replace(/<[^>]+>/g, '')}
+                                </p>
+                                <div class="d-flex align-items-center small text-muted">
+                                    <span class="me-2">
+                                        <i class="bi bi-person-circle me-1"></i>${p.authorName}
+                                    </span>
+                                    ${authorTag}
+                                    <span class="mx-2">·</span>
+                                    <span><i class="bi bi-clock me-1"></i>${formatTime(sortTime)}</span>
+                                    <span class="mx-2">·</span>
+                                    <span><i class="bi bi-chat me-1"></i>${p.replyCount || 0} 回帖</span>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center ms-3" onclick="event.stopPropagation()">
+                                <button class="btn btn-sm btn-outline-danger like-btn ${likeClass} border-0" onclick="togglePostLike(${p.postId}, this)">
+                                    <i class="bi bi-heart${p.isLiked ? '-fill' : ''} me-1"></i>
+                                    <span class="like-count">${p.likeCount || 0}</span>
+                                </button>
+                                ${canDelete ? `
+                                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deletePost(${p.postId})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderPagination() {
+            const container = document.getElementById('pagination');
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            let html = '<nav><ul class="pagination">';
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" onclick="goToPage(${currentPage - 1})">上一页</a></li>`;
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" onclick="goToPage(${i})">${i}</a></li>`;
+            }
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" onclick="goToPage(${currentPage + 1})">下一页</a></li>`;
+            html += '</ul></nav>';
+            container.innerHTML = html;
+        }
+
+        function goToPage(p) {
+            if (p < 1 || p > totalPages) return;
+            currentPage = p;
+            loadPostList();
+        }
+
+        function showCreateModal() {
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('createPostModal')).show();
+        }
+
+        async function submitCreatePost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            if (!title) { api.showToast('请输入帖子标题', 'danger'); return; }
+            if (!content) { api.showToast('请输入帖子内容', 'danger'); return; }
+
+            try {
+                const result = await api.forum.createPost(
+                    currentUser.class_id, title, content,
+                    'STUDENT', currentUser.uid, currentUser.username
+                );
+                if (result.success) {
+                    api.showToast('发帖成功', 'success');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('createPostModal')).hide();
+                    currentPage = 1;
+                    loadPostList();
+                } else {
+                    api.showToast(result.message || '发帖失败', 'danger');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function togglePostLike(postId, btn) {
+            try {
+                const result = await api.forum.toggleLike(
+                    'POST', postId, 'STUDENT', currentUser.uid, currentUser.username
+                );
+                if (result.liked) {
+                    btn.classList.add('liked');
+                    btn.querySelector('i').className = 'bi bi-heart-fill me-1';
+                } else {
+                    btn.classList.remove('liked');
+                    btn.querySelector('i').className = 'bi bi-heart me-1';
+                }
+                btn.querySelector('.like-count').textContent = result.likeCount;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function toggleReplyLike(replyId, btn) {
+            try {
+                const result = await api.forum.toggleLike(
+                    'REPLY', replyId, 'STUDENT', currentUser.uid, currentUser.username
+                );
+                if (result.liked) {
+                    btn.classList.add('liked');
+                    btn.querySelector('i').className = 'bi bi-heart-fill me-1';
+                } else {
+                    btn.classList.remove('liked');
+                    btn.querySelector('i').className = 'bi bi-heart me-1';
+                }
+                btn.querySelector('.like-count').textContent = result.likeCount;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function deletePost(postId) {
+            if (!confirm('确定要删除这个帖子吗？所有回帖和点赞都将被清除。')) return;
+            try {
+                const result = await api.forum.deletePost(postId, 'STUDENT', currentUser.uid);
+                if (result.success) {
+                    api.showToast('删除成功', 'success');
+                    loadPostList();
+                } else {
+                    api.showToast(result.message || '删除失败', 'danger');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function deleteReply(replyId) {
+            if (!confirm('确定要删除这条回帖吗？')) return;
+            try {
+                const result = await api.forum.deleteReply(replyId, 'STUDENT', currentUser.uid);
+                if (result.success) {
+                    api.showToast('删除成功', 'success');
+                    loadReplyList();
+                } else {
+                    api.showToast(result.message || '删除失败', 'danger');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function openPostDetail(postId) {
+            currentPostId = postId;
+            currentReplyPage = 1;
+            document.getElementById('list-section').style.display = 'none';
+            document.getElementById('detail-section').style.display = 'block';
+            try {
+                const detail = await api.forum.getPostDetail(postId, 'STUDENT', currentUser.uid);
+                renderPostDetail(detail.post);
+                loadReplyList();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function showList() {
+            document.getElementById('detail-section').style.display = 'none';
+            document.getElementById('list-section').style.display = 'block';
+            currentPostId = null;
+            loadPostList();
+        }
+
+        function renderPostDetail(post) {
+            const authorTag = post.authorType === 'TEACHER'
+                ? '<span class="author-tag teacher">教师</span>'
+                : '<span class="author-tag student">学生</span>';
+            const pinnedBadge = post.isPinned === 1 ? '<span class="badge bg-warning text-dark me-2"><i class="bi bi-pin-angle-fill"></i> 置顶</span>' : '';
+            const canDelete = (post.authorType === 'STUDENT' && post.authorId === currentUser.uid);
+            const likeClass = post.isLiked ? 'liked' : '';
+
+            document.getElementById('postDetail').innerHTML = `
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="fw-bold mb-2">
+                            ${pinnedBadge}
+                            ${post.title}
+                        </h5>
+                        <div class="d-flex align-items-center small text-muted">
+                            <span class="me-2"><i class="bi bi-person-circle me-1"></i>${post.authorName}</span>
+                            ${authorTag}
+                            <span class="mx-2">·</span>
+                            <span><i class="bi bi-clock me-1"></i>${formatTime(post.createdAt)}</span>
+                            <span class="mx-2">·</span>
+                            <span><i class="bi bi-chat me-1"></i>${post.replyCount || 0} 回帖</span>
+                            <div class="ms-auto d-flex align-items-center" onclick="event.stopPropagation()">
+                                <button class="btn btn-sm btn-outline-danger like-btn ${likeClass} border-0" onclick="togglePostLikeDetail(${post.postId}, this)">
+                                    <i class="bi bi-heart${post.isLiked ? '-fill' : ''} me-1"></i>
+                                    <span class="like-count">${post.likeCount || 0}</span>
+                                </button>
+                                ${canDelete ? `
+                                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deletePostFromDetail(${post.postId})">
+                                    <i class="bi bi-trash me-1"></i>删除
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8;">${post.content}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function togglePostLikeDetail(postId, btn) {
+            await togglePostLike(postId, btn);
+        }
+
+        async function deletePostFromDetail(postId) {
+            if (!confirm('确定要删除这个帖子吗？所有回帖和点赞都将被清除。')) return;
+            try {
+                const result = await api.forum.deletePost(postId, 'STUDENT', currentUser.uid);
+                if (result.success) {
+                    api.showToast('删除成功', 'success');
+                    showList();
+                } else {
+                    api.showToast(result.message || '删除失败', 'danger');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadReplyList() {
+            if (!currentPostId) return;
+            try {
+                const data = await api.forum.getReplyList(
+                    currentPostId, currentReplyPage, 20,
+                    'STUDENT', currentUser.uid
+                );
+                replyTotalPages = data.totalPages || 1;
+                document.getElementById('replyCountInfo').textContent = `(${data.total || 0})`;
+                renderReplyList(data.replies || []);
+                renderReplyPagination();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderReplyList(replies) {
+            const container = document.getElementById('replyList');
+            if (!replies.length) {
+                container.innerHTML = `
+                    <div class="empty-state py-4">
+                        <i class="bi bi-chat display-6"></i>
+                        <p class="mt-2 mb-0 small">暂无回帖，来抢沙发吧！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const startNo = (currentReplyPage - 1) * 20 + 1;
+            container.innerHTML = replies.map((r, idx) => {
+                const authorTag = r.authorType === 'TEACHER'
+                    ? '<span class="author-tag teacher">教师</span>'
+                    : '<span class="author-tag student">学生</span>';
+                const canDelete = (r.authorType === 'STUDENT' && r.authorId === currentUser.uid);
+                const likeClass = r.isLiked ? 'liked' : '';
+                const avatar = r.authorType === 'TEACHER' ? '#1976d2' : '#7b1fa2';
+
+                return `
+                <div class="reply-item p-3 mb-2 rounded">
+                    <div class="d-flex align-items-start">
+                        <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                             style="width:36px;height:36px;background:${avatar};">
+                            ${r.authorName.charAt(0)}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="fw-bold me-2">${r.authorName}</span>
+                                ${authorTag}
+                                <span class="text-muted small ms-2">#${startNo + idx}</span>
+                                <span class="text-muted small ms-3">${formatTime(r.createdAt)}</span>
+                            </div>
+                            <div style="white-space: pre-wrap; line-height: 1.7;" class="mb-2">${r.content}</div>
+                            <div class="d-flex align-items-center">
+                                <button class="btn btn-sm btn-outline-danger like-btn ${likeClass} border-0" onclick="toggleReplyLike(${r.replyId}, this)">
+                                    <i class="bi bi-heart${r.isLiked ? '-fill' : ''} me-1"></i>
+                                    <span class="like-count">${r.likeCount || 0}</span>
+                                </button>
+                                ${canDelete ? `
+                                <button class="btn btn-sm btn-outline-danger ms-3" onclick="deleteReply(${r.replyId})">
+                                    <i class="bi bi-trash me-1"></i>删除
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderReplyPagination() {
+            const container = document.getElementById('replyPagination');
+            if (replyTotalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            let html = '<nav><ul class="pagination pagination-sm">';
+            html += `<li class="page-item ${currentReplyPage === 1 ? 'disabled' : ''}"><a class="page-link" onclick="goToReplyPage(${currentReplyPage - 1})">上一页</a></li>`;
+            for (let i = 1; i <= replyTotalPages; i++) {
+                html += `<li class="page-item ${i === currentReplyPage ? 'active' : ''}"><a class="page-link" onclick="goToReplyPage(${i})">${i}</a></li>`;
+            }
+            html += `<li class="page-item ${currentReplyPage === replyTotalPages ? 'disabled' : ''}"><a class="page-link" onclick="goToReplyPage(${currentReplyPage + 1})">下一页</a></li>`;
+            html += '</ul></nav>';
+            container.innerHTML = html;
+        }
+
+        function goToReplyPage(p) {
+            if (p < 1 || p > replyTotalPages) return;
+            currentReplyPage = p;
+            loadReplyList();
+        }
+
+        async function submitReply() {
+            const content = document.getElementById('replyContent').value.trim();
+            if (!content) { api.showToast('请输入回帖内容', 'danger'); return; }
+            try {
+                const result = await api.forum.createReply(
+                    currentPostId, content,
+                    'STUDENT', currentUser.uid, currentUser.username
+                );
+                if (result.success) {
+                    api.showToast('回帖成功', 'success');
+                    document.getElementById('replyContent').value = '';
+                    currentReplyPage = replyTotalPages;
+                    const replyData = await api.forum.getReplyList(currentPostId, 1, 20);
+                    const newTotal = replyData.total;
+                    replyTotalPages = Math.ceil(newTotal / 20);
+                    currentReplyPage = replyTotalPages;
+                    loadReplyList();
+                    const detail = await api.forum.getPostDetail(currentPostId, 'STUDENT', currentUser.uid);
+                    renderPostDetail(detail.post);
+                } else {
+                    api.showToast(result.message || '回帖失败', 'danger');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

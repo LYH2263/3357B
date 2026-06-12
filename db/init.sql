@@ -902,3 +902,128 @@ INSERT INTO `point_detail` (`student_id`, `student_name`, `rule_code`, `rule_nam
 (14, '小蒋', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_8', NULL, NULL, NULL, 5, '2026-02-25 15:00:00'),
 (14, '小蒋', 'SIGN_IN', '完成签到', 5, 'SYSTEM', 'SIGN_7_14', NULL, NULL, NULL, 10, '2026-03-05 08:30:00'),
 (14, '小蒋', 'HOMEWORK_SUBMIT', '按时提交作业', 10, 'SYSTEM', 'HW_SUB_5_14', NULL, NULL, NULL, 20, '2026-06-10 14:00:00');
+
+-- (30) 班级讨论区帖子表 forum_post
+CREATE TABLE `forum_post` (
+    `post_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `class_id` INT NOT NULL COMMENT '所属班级ID',
+    `class_name` VARCHAR(100) COMMENT '班级名称(冗余)',
+    `title` VARCHAR(255) NOT NULL COMMENT '帖子标题',
+    `content` TEXT NOT NULL COMMENT '帖子正文',
+    `author_type` VARCHAR(20) NOT NULL COMMENT '作者类型：STUDENT学生/TEACHER教师',
+    `author_id` INT NOT NULL COMMENT '作者ID',
+    `author_name` VARCHAR(50) COMMENT '作者姓名(冗余)',
+    `is_pinned` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶：0否/1是',
+    `pin_order` INT NOT NULL DEFAULT 0 COMMENT '置顶排序(置顶帖子内部排序)',
+    `reply_count` INT NOT NULL DEFAULT 0 COMMENT '回帖数(冗余计数)',
+    `like_count` INT NOT NULL DEFAULT 0 COMMENT '点赞数(冗余计数)',
+    `last_reply_at` DATETIME COMMENT '最后回帖时间(用于最新回复排序)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_class_id` (`class_id`),
+    INDEX `idx_author` (`author_type`, `author_id`),
+    INDEX `idx_pinned` (`is_pinned`, `pin_order`),
+    INDEX `idx_last_reply_at` (`last_reply_at`),
+    INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级讨论区帖子表';
+
+-- (31) 班级讨论区回帖表 forum_reply
+CREATE TABLE `forum_reply` (
+    `reply_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `post_id` INT NOT NULL COMMENT '所属帖子ID',
+    `content` TEXT NOT NULL COMMENT '回帖内容',
+    `author_type` VARCHAR(20) NOT NULL COMMENT '作者类型：STUDENT学生/TEACHER教师',
+    `author_id` INT NOT NULL COMMENT '作者ID',
+    `author_name` VARCHAR(50) COMMENT '作者姓名(冗余)',
+    `like_count` INT NOT NULL DEFAULT 0 COMMENT '点赞数(冗余计数)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_post_id` (`post_id`),
+    INDEX `idx_author` (`author_type`, `author_id`),
+    INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级讨论区回帖表';
+
+-- (32) 班级讨论区点赞表 forum_like
+CREATE TABLE `forum_like` (
+    `like_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `target_type` VARCHAR(20) NOT NULL COMMENT '点赞对象类型：POST帖子/REPLY回帖',
+    `target_id` INT NOT NULL COMMENT '点赞对象ID(帖子ID或回帖ID)',
+    `user_type` VARCHAR(20) NOT NULL COMMENT '点赞用户类型：STUDENT学生/TEACHER教师',
+    `user_id` INT NOT NULL COMMENT '点赞用户ID',
+    `user_name` VARCHAR(50) COMMENT '点赞用户姓名(冗余)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
+    UNIQUE KEY `uk_target_user` (`target_type`, `target_id`, `user_type`, `user_id`),
+    INDEX `idx_target` (`target_type`, `target_id`),
+    INDEX `idx_user` (`user_type`, `user_id`),
+    INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级讨论区点赞表';
+
+-- Forum posts sample data
+INSERT INTO `forum_post` (`class_id`, `class_name`, `title`, `content`, `author_type`, `author_id`, `author_name`, `is_pinned`, `reply_count`, `like_count`, `last_reply_at`, `created_at`) VALUES
+(1, '计算机2101', '关于Java多线程的学习交流', '最近在学习Java多线程，感觉synchronized和ReentrantLock的区别有点难理解，大家有没有好的学习资料或者经验可以分享一下？', 'STUDENT', 1, '小明', 1, 3, 5, '2026-06-12 10:30:00', '2026-06-10 09:00:00'),
+(1, '计算机2101', '期末复习计划讨论', '期末考试快到了，大家的复习计划是怎么安排的？我们可以一起组队复习，互相监督。', 'STUDENT', 2, '小红', 0, 2, 3, '2026-06-11 15:20:00', '2026-06-09 14:30:00'),
+(1, '计算机2101', '数据库期末重点整理', '我整理了一份数据库期末重点，包括SQL优化、事务隔离级别、范式等内容，需要的同学可以在楼下留言，我发链接给大家。', 'STUDENT', 1, '小明', 0, 4, 8, '2026-06-12 08:00:00', '2026-06-08 10:15:00'),
+(2, '计算机2102', '算法竞赛准备帖', '下半年有ACM程序设计竞赛，有兴趣参加的同学可以在这里组队，我们可以一起刷题。', 'STUDENT', 3, '小王', 0, 1, 6, '2026-06-10 12:00:00', '2026-06-07 16:00:00'),
+(3, '软件2101', '前端框架选择讨论', '我们小组项目需要选一个前端框架，Vue和React哪个更适合新手入门？求建议。', 'STUDENT', 5, '小赵', 0, 2, 4, '2026-06-11 09:30:00', '2026-06-08 11:00:00');
+
+-- Forum replies sample data
+INSERT INTO `forum_reply` (`post_id`, `content`, `author_type`, `author_id`, `author_name`, `like_count`, `created_at`) VALUES
+(1, '推荐看《Java并发编程实战》这本书，讲得很详细。synchronized是关键字，ReentrantLock是类，后者更灵活，支持公平锁和超时获取等特性。', 'TEACHER', 1, '张老师', 3, '2026-06-10 10:00:00'),
+(1, '我也在学，推荐B站上的并发编程视频，配合代码实践效果更好！', 'STUDENT', 2, '小红', 1, '2026-06-10 14:20:00'),
+(1, '补充一下：ReentrantLock需要手动释放锁，一般写在finally块里，synchronized是JVM自动释放的。', 'TEACHER', 1, '张老师', 2, '2026-06-12 10:30:00'),
+(2, '我计划先过一遍课件，然后刷课后题，最后做几套模拟卷。大家加油！', 'STUDENT', 1, '小明', 1, '2026-06-09 16:00:00'),
+(2, '组队复习的想法很好，我报名！可以建个群每天打卡。', 'STUDENT', 2, '小红', 2, '2026-06-11 15:20:00'),
+(3, '太好了！正好需要，麻烦发一下吧~', 'STUDENT', 2, '小红', 1, '2026-06-08 12:00:00'),
+(3, '同求！重点内容整理得怎么样了？', 'STUDENT', 1, '小明', 0, '2026-06-08 15:30:00'),
+(3, '同学们复习的时候注意理解范式的推导过程，考试常考！另外B+树索引的结构也要重点掌握。', 'TEACHER', 2, '李老师', 5, '2026-06-09 09:00:00'),
+(3, '已收到，整理得很详细，谢谢分享！', 'STUDENT', 2, '小红', 2, '2026-06-12 08:00:00'),
+(4, '我也想参加，我们可以一起刷LeetCode，每周至少3题。', 'STUDENT', 4, '小李', 2, '2026-06-10 12:00:00'),
+(5, 'Vue更友好，文档是中文的，上手快。如果是做中后台项目，推荐Vue3 + Element Plus。', 'STUDENT', 6, '小孙', 3, '2026-06-08 14:00:00'),
+(5, 'React的生态更好一些，大厂用得更多。如果想以后找工作有优势，可以学React。', 'STUDENT', 5, '小赵', 1, '2026-06-11 09:30:00');
+
+-- Forum likes sample data
+INSERT INTO `forum_like` (`target_type`, `target_id`, `user_type`, `user_id`, `user_name`, `created_at`) VALUES
+('POST', 1, 'STUDENT', 2, '小红', '2026-06-10 09:30:00'),
+('POST', 1, 'STUDENT', 1, '小明', '2026-06-10 10:00:00'),
+('POST', 1, 'TEACHER', 1, '张老师', '2026-06-10 10:15:00'),
+('POST', 1, 'STUDENT', 1, '小明', '2026-06-10 11:00:00'),
+('POST', 1, 'STUDENT', 2, '小红', '2026-06-11 09:00:00'),
+('POST', 2, 'STUDENT', 1, '小明', '2026-06-09 15:00:00'),
+('POST', 2, 'STUDENT', 2, '小红', '2026-06-09 16:00:00'),
+('POST', 2, 'TEACHER', 1, '张老师', '2026-06-10 09:00:00'),
+('POST', 3, 'STUDENT', 2, '小红', '2026-06-08 11:30:00'),
+('POST', 3, 'TEACHER', 2, '李老师', '2026-06-08 13:00:00'),
+('POST', 3, 'STUDENT', 1, '小明', '2026-06-08 14:00:00'),
+('POST', 3, 'STUDENT', 2, '小红', '2026-06-08 15:00:00'),
+('POST', 3, 'TEACHER', 1, '张老师', '2026-06-08 16:00:00'),
+('POST', 3, 'STUDENT', 1, '小明', '2026-06-09 08:00:00'),
+('POST', 3, 'STUDENT', 2, '小红', '2026-06-09 09:00:00'),
+('POST', 3, 'TEACHER', 2, '李老师', '2026-06-09 10:00:00'),
+('POST', 4, 'STUDENT', 3, '小王', '2026-06-07 17:00:00'),
+('POST', 4, 'STUDENT', 4, '小李', '2026-06-07 18:00:00'),
+('POST', 4, 'TEACHER', 3, '王老师', '2026-06-08 09:00:00'),
+('POST', 4, 'STUDENT', 3, '小王', '2026-06-08 10:00:00'),
+('POST', 4, 'STUDENT', 4, '小李', '2026-06-08 11:00:00'),
+('POST', 4, 'TEACHER', 3, '王老师', '2026-06-08 12:00:00'),
+('POST', 5, 'STUDENT', 5, '小赵', '2026-06-08 11:30:00'),
+('POST', 5, 'STUDENT', 6, '小孙', '2026-06-08 12:00:00'),
+('POST', 5, 'TEACHER', 5, '孙老师', '2026-06-08 13:00:00'),
+('POST', 5, 'STUDENT', 5, '小赵', '2026-06-08 14:00:00'),
+('REPLY', 1, 'STUDENT', 1, '小明', '2026-06-10 10:30:00'),
+('REPLY', 1, 'STUDENT', 2, '小红', '2026-06-10 11:00:00'),
+('REPLY', 1, 'STUDENT', 1, '小明', '2026-06-10 11:30:00'),
+('REPLY', 2, 'STUDENT', 1, '小明', '2026-06-10 14:40:00'),
+('REPLY', 3, 'STUDENT', 1, '小明', '2026-06-12 10:45:00'),
+('REPLY', 3, 'STUDENT', 2, '小红', '2026-06-12 11:00:00'),
+('REPLY', 5, 'STUDENT', 1, '小明', '2026-06-11 15:40:00'),
+('REPLY', 5, 'TEACHER', 1, '张老师', '2026-06-11 16:00:00'),
+('REPLY', 8, 'STUDENT', 1, '小明', '2026-06-09 09:30:00'),
+('REPLY', 8, 'STUDENT', 2, '小红', '2026-06-09 10:00:00'),
+('REPLY', 8, 'TEACHER', 1, '张老师', '2026-06-09 10:30:00'),
+('REPLY', 8, 'STUDENT', 1, '小明', '2026-06-09 11:00:00'),
+('REPLY', 8, 'STUDENT', 2, '小红', '2026-06-09 11:30:00'),
+('REPLY', 10, 'STUDENT', 3, '小王', '2026-06-10 12:30:00'),
+('REPLY', 10, 'TEACHER', 3, '王老师', '2026-06-10 13:00:00'),
+('REPLY', 11, 'STUDENT', 5, '小赵', '2026-06-08 14:30:00'),
+('REPLY', 11, 'TEACHER', 5, '孙老师', '2026-06-08 15:00:00'),
+('REPLY', 11, 'STUDENT', 6, '小孙', '2026-06-08 15:30:00');

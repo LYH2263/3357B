@@ -65,5 +65,72 @@ const api = {
         localStorage.removeItem('school_user');
         localStorage.removeItem('school_role');
         location.href = 'index.html';
+    },
+
+    forum: {
+        async createPost(classId, title, content, authorType, authorId, authorName) {
+            return await api.request('/forum/post/create', {
+                method: 'POST',
+                body: JSON.stringify({ classId, title, content, authorType, authorId, authorName })
+            });
+        },
+
+        async getPostList(classId, page = 1, size = 10, userType = null, userId = null) {
+            let url = `/forum/post/list?classId=${classId}&page=${page}&size=${size}`;
+            if (userType) url += `&userType=${userType}`;
+            if (userId) url += `&userId=${userId}`;
+            return await api.request(url);
+        },
+
+        async getPostDetail(postId, userType = null, userId = null) {
+            let url = `/forum/post/detail/${postId}`;
+            const params = [];
+            if (userType) params.push(`userType=${userType}`);
+            if (userId) params.push(`userId=${userId}`);
+            if (params.length) url += '?' + params.join('&');
+            return await api.request(url);
+        },
+
+        async deletePost(postId, operatorType, operatorId) {
+            return await api.request('/forum/post/delete', {
+                method: 'POST',
+                body: JSON.stringify({ postId, operatorType, operatorId })
+            });
+        },
+
+        async togglePin(postId, teacherId) {
+            return await api.request('/forum/post/toggle-pin', {
+                method: 'POST',
+                body: JSON.stringify({ postId, teacherId })
+            });
+        },
+
+        async createReply(postId, content, authorType, authorId, authorName) {
+            return await api.request('/forum/reply/create', {
+                method: 'POST',
+                body: JSON.stringify({ postId, content, authorType, authorId, authorName })
+            });
+        },
+
+        async getReplyList(postId, page = 1, size = 20, userType = null, userId = null) {
+            let url = `/forum/reply/list?postId=${postId}&page=${page}&size=${size}`;
+            if (userType) url += `&userType=${userType}`;
+            if (userId) url += `&userId=${userId}`;
+            return await api.request(url);
+        },
+
+        async deleteReply(replyId, operatorType, operatorId) {
+            return await api.request('/forum/reply/delete', {
+                method: 'POST',
+                body: JSON.stringify({ replyId, operatorType, operatorId })
+            });
+        },
+
+        async toggleLike(targetType, targetId, userType, userId, userName) {
+            return await api.request('/forum/like/toggle', {
+                method: 'POST',
+                body: JSON.stringify({ targetType, targetId, userType, userId, userName })
+            });
+        }
     }
 };

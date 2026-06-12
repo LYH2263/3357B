@@ -739,3 +739,35 @@ INSERT INTO `learning_progress` (`student_id`, `student_name`, `course_id`, `cou
 (5, '小赵', 9, '数据库第1章：绪论', 1, '2026-06-05 10:00:00'),
 (5, '小赵', 17, 'OS第1章：概述', 1, '2026-06-07 11:00:00'),
 (5, '小赵', 2, 'Java第2章：数据类型', 0, NULL);
+
+-- (26) 收藏记录表 favorite
+CREATE TABLE `favorite` (
+    `favorite_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` INT NOT NULL COMMENT '学生ID(user表uid)',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `resource_type` VARCHAR(20) NOT NULL COMMENT '资源类型：COURSE教学内容/EXPERIMENT实验内容',
+    `resource_id` INT NOT NULL COMMENT '资源ID(course表cid 或 experiment表eid)',
+    `resource_title` VARCHAR(255) COMMENT '资源标题(冗余)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '收藏时间',
+    UNIQUE KEY `uk_student_resource` (`student_id`, `resource_type`, `resource_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_resource` (`resource_type`, `resource_id`),
+    INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='收藏记录表';
+
+-- Favorite sample data
+INSERT INTO `favorite` (`student_id`, `student_name`, `resource_type`, `resource_id`, `resource_title`) VALUES
+(1, '小明', 'COURSE', 1, 'Java第1章：基础简介'),
+(1, '小明', 'COURSE', 4, 'Java第4章：类与对象'),
+(1, '小明', 'EXPERIMENT', 1, 'Java实验1：环境搭建'),
+(1, '小明', 'EXPERIMENT', 3, 'Java实验3：面向对象'),
+(2, '小红', 'COURSE', 1, 'Java第1章：基础简介'),
+(2, '小红', 'COURSE', 13, '网络第1章：概述'),
+(2, '小红', 'EXPERIMENT', 10, '算法实验1：分治法'),
+(3, '小王', 'COURSE', 2, 'Java第2章：数据类型'),
+(3, '小王', 'COURSE', 3, 'Java第3章：控制流'),
+(3, '小王', 'COURSE', 6, 'Java第6章：集合框架'),
+(3, '小王', 'EXPERIMENT', 2, 'Java实验2：控制结构'),
+(3, '小王', 'EXPERIMENT', 6, 'Java实验6：网络编程'),
+(5, '小赵', 'COURSE', 9, '数据库第1章：绪论'),
+(5, '小赵', 'EXPERIMENT', 7, '数据库实验1：建表');

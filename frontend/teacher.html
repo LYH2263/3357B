@@ -73,6 +73,7 @@
             <li><a href="signin-manage.html" class="nav-link"><i class="bi bi-check2-square"></i>签到管理</a></li>
             <li><a href="message-teacher.html" class="nav-link"><i class="bi bi-chat-heart"></i>站内私信</a></li>
             <li><a href="progress-manage.html" class="nav-link"><i class="bi bi-bar-chart-steps"></i>学习进度</a></li>
+            <li><a href="#" class="nav-link" onclick="loadFavoriteRanking()"><i class="bi bi-heart-fill text-danger"></i>资源收藏榜</a></li>
         </ul>
         <hr>
         <div class="p-2">
@@ -318,6 +319,19 @@
                 l.classList.remove('active');
                 if (l.innerText.includes(schema.title.substring(0, 2))) l.classList.add('active');
             });
+
+            // 确保表格容器存在
+            const rankingContainer = document.querySelector('.ranking-container');
+            if (rankingContainer) {
+                rankingContainer.outerHTML = `<div class="card p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead id="tableHead"></thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>`;
+            }
 
             const head = document.getElementById('tableHead');
             head.innerHTML = `<tr>${schema.headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
@@ -727,6 +741,110 @@
                 } catch (err) { }
             };
             modal.show();
+        }
+
+        function loadFavoriteRanking() {
+            currentPage = 'favoriteRanking';
+            document.getElementById('pageTitle').innerText = '最受欢迎资源榜单';
+            document.getElementById('actionBtnArea').style.display = 'none';
+
+            document.querySelectorAll('.nav-link').forEach(l => {
+                l.classList.remove('active');
+                if (l.innerText.includes('资源收藏榜')) l.classList.add('active');
+            });
+
+            const mainContent = document.querySelector('.main-content');
+            let rankingHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card p-4">
+                            <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-text me-2"></i>教学内容收藏榜 TOP 10</h6>
+                            <div id="courseRankingList">
+                                <div class="text-center py-4 text-muted">
+                                    <div class="spinner-border text-primary spinner-border-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-4">
+                            <h6 class="fw-bold mb-3 text-success"><i class="bi bi-vial me-2"></i>实验内容收藏榜 TOP 10</h6>
+                            <div id="experimentRankingList">
+                                <div class="text-center py-4 text-muted">
+                                    <div class="spinner-border text-success spinner-border-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const card = document.querySelector('.main-content > .card');
+            if (card) {
+                card.outerHTML = `<div class="ranking-container">${rankingHtml}</div>`;
+            } else {
+                const container = document.querySelector('.ranking-container');
+                if (container) {
+                    container.innerHTML = rankingHtml;
+                } else {
+                    const mainContent = document.querySelector('.main-content');
+                    const newDiv = document.createElement('div');
+                    newDiv.className = 'ranking-container';
+                    newDiv.innerHTML = rankingHtml;
+                    mainContent.appendChild(newDiv);
+                }
+            }
+
+            loadRankingData();
+        }
+
+        async function loadRankingData() {
+            const courseList = document.getElementById('courseRankingList');
+            const expList = document.getElementById('experimentRankingList');
+
+            try {
+                const [courseData, expData] = await Promise.all([
+                    api.request('/favorite/ranking?resourceType=COURSE&limit=10'),
+                    api.request('/favorite/ranking?resourceType=EXPERIMENT&limit=10')
+                ]);
+
+                if (courseData.length === 0) {
+                    courseList.innerHTML = '<div class="text-center py-5 text-muted small">暂无收藏数据</div>';
+                } else {
+                    courseList.innerHTML = courseData.map((item, idx) => {
+                        const rankClass = idx === 0 ? 'bg-warning text-white' : (idx === 1 ? 'bg-secondary text-white' : (idx === 2 ? 'bg-info text-white' : 'bg-light text-muted'));
+                        return `
+                            <div class="d-flex align-items-center py-2 border-bottom">
+                                <span class="badge ${rankClass} me-3" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;">${idx + 1}</span>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold small">${item.resourceTitle}</div>
+                                </div>
+                                <span class="badge bg-danger">${item.favoriteCount} 人收藏</span>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                if (expData.length === 0) {
+                    expList.innerHTML = '<div class="text-center py-5 text-muted small">暂无收藏数据</div>';
+                } else {
+                    expList.innerHTML = expData.map((item, idx) => {
+                        const rankClass = idx === 0 ? 'bg-warning text-white' : (idx === 1 ? 'bg-secondary text-white' : (idx === 2 ? 'bg-info text-white' : 'bg-light text-muted'));
+                        return `
+                            <div class="d-flex align-items-center py-2 border-bottom">
+                                <span class="badge ${rankClass} me-3" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;">${idx + 1}</span>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold small">${item.resourceTitle}</div>
+                                </div>
+                                <span class="badge bg-success">${item.favoriteCount} 人收藏</span>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                courseList.innerHTML = '<div class="text-center py-5 text-muted small">加载失败</div>';
+                expList.innerHTML = '<div class="text-center py-5 text-muted small">加载失败</div>';
+            }
         }
 
         loadManagePage('user');

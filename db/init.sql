@@ -771,3 +771,134 @@ INSERT INTO `favorite` (`student_id`, `student_name`, `resource_type`, `resource
 (3, '小王', 'EXPERIMENT', 6, 'Java实验6：网络编程'),
 (5, '小赵', 'COURSE', 9, '数据库第1章：绪论'),
 (5, '小赵', 'EXPERIMENT', 7, '数据库实验1：建表');
+
+-- (27) 积分规则表 point_rule
+CREATE TABLE `point_rule` (
+    `rule_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `rule_code` VARCHAR(50) NOT NULL COMMENT '规则编码(唯一标识行为类型，如ASK_QUESTION/SIGN_IN/HOMEWORK_SUBMIT)',
+    `rule_name` VARCHAR(100) NOT NULL COMMENT '规则名称(如：提交提问、完成签到、按时提交作业)',
+    `point_value` INT NOT NULL COMMENT '积分值(正数为加分，负数为扣分)',
+    `source_type` VARCHAR(30) NOT NULL COMMENT '来源类型：SYSTEM系统自动/MANUAL手工',
+    `description` VARCHAR(255) COMMENT '规则说明',
+    `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用：0禁用/1启用',
+    `daily_limit` INT COMMENT '每日积分上限(NULL表示无限制)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_rule_code` (`rule_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='积分规则表';
+
+-- (28) 积分汇总表 point_summary
+CREATE TABLE `point_summary` (
+    `summary_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` INT NOT NULL COMMENT '学生ID(user表uid)',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `student_no` VARCHAR(50) COMMENT '学号(冗余)',
+    `class_id` INT COMMENT '班级ID',
+    `class_name` VARCHAR(100) COMMENT '班级名称(冗余)',
+    `total_points` INT NOT NULL DEFAULT 0 COMMENT '总积分',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_student_id` (`student_id`),
+    INDEX `idx_class_id` (`class_id`),
+    INDEX `idx_total_points` (`total_points` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='积分汇总表';
+
+-- (29) 积分明细表 point_detail
+CREATE TABLE `point_detail` (
+    `detail_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` INT NOT NULL COMMENT '学生ID(user表uid)',
+    `student_name` VARCHAR(50) COMMENT '学生姓名(冗余)',
+    `rule_code` VARCHAR(50) NOT NULL COMMENT '规则编码',
+    `rule_name` VARCHAR(100) COMMENT '规则名称(冗余)',
+    `point_value` INT NOT NULL COMMENT '积分变动值(正加负扣)',
+    `source_type` VARCHAR(30) NOT NULL COMMENT '来源类型：SYSTEM系统自动/MANUAL手工',
+    `source_id` VARCHAR(100) COMMENT '来源业务ID(用于幂等校验，如签到任务ID+学生ID)',
+    `reason` VARCHAR(255) COMMENT '手工调整理由',
+    `operator_id` INT COMMENT '操作人ID(手工调整时的教师ID)',
+    `operator_name` VARCHAR(50) COMMENT '操作人姓名',
+    `balance_after` INT COMMENT '变动后余额(冗余快照)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    UNIQUE KEY `uk_source_id` (`source_id`),
+    INDEX `idx_student_id` (`student_id`),
+    INDEX `idx_rule_code` (`rule_code`),
+    INDEX `idx_created_at` (`created_at`),
+    INDEX `idx_student_created` (`student_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='积分明细表';
+
+-- Point rules sample data
+INSERT INTO `point_rule` (`rule_code`, `rule_name`, `point_value`, `source_type`, `description`, `is_enabled`, `daily_limit`) VALUES
+('ASK_QUESTION', '提交提问', 5, 'SYSTEM', '在互动交流中提交一次提问', 1, 20),
+('QUESTION_ANSWERED', '提问被回答', 10, 'SYSTEM', '提交的提问获得教师回答', 1, NULL),
+('SIGN_IN', '完成签到', 5, 'SYSTEM', '完成一次课堂签到', 1, 10),
+('HOMEWORK_SUBMIT', '按时提交作业', 10, 'SYSTEM', '在截止时间前提交作业', 1, NULL),
+('HOMEWORK_EXCELLENT', '作业获评优秀', 20, 'SYSTEM', '作业成绩>=90分', 1, NULL),
+('LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', '标记完成一个教学内容章节', 1, 15),
+('EXAM_PASS', '测验及格', 15, 'SYSTEM', '在线测验成绩达到及格线', 1, NULL),
+('MANUAL_ADJUST', '手工调整', 0, 'MANUAL', '教师手工加分或扣分', 1, NULL);
+
+-- Point summary sample data (based on existing student activity)
+INSERT INTO `point_summary` (`student_id`, `student_name`, `student_no`, `class_id`, `class_name`, `total_points`) VALUES
+(1, '小明', 'S2021001', 1, '计算机2101', 58),
+(2, '小红', 'S2021002', 1, '计算机2101', 40),
+(3, '小王', 'S2021003', 2, '计算机2102', 105),
+(5, '小赵', 'S2021005', 3, '软件2101', 36),
+(6, '小孙', 'S2021006', 3, '软件2101', 15),
+(7, '小周', 'S2021007', 4, '软件2102', 10),
+(14, '小蒋', 'S2021014', 7, 'AI2101', 20);
+
+-- Point detail sample data
+INSERT INTO `point_detail` (`student_id`, `student_name`, `rule_code`, `rule_name`, `point_value`, `source_type`, `source_id`, `reason`, `operator_id`, `operator_name`, `balance_after`, `created_at`) VALUES
+(1, '小明', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_11', NULL, NULL, NULL, 5, '2026-02-24 12:00:00'),
+(1, '小明', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_1', NULL, NULL, NULL, 10, '2026-02-20 10:00:00'),
+(1, '小明', 'QUESTION_ANSWERED', '提问被回答', 10, 'SYSTEM', 'ANS_Q_1', NULL, NULL, NULL, 20, '2026-02-20 11:00:00'),
+(1, '小明', 'SIGN_IN', '完成签到', 5, 'SYSTEM', 'SIGN_1_1', NULL, NULL, NULL, 25, '2026-03-01 08:30:00'),
+(1, '小明', 'HOMEWORK_SUBMIT', '按时提交作业', 10, 'SYSTEM', 'HW_SUB_1_1', NULL, NULL, NULL, 35, '2026-06-12 15:30:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_1', NULL, NULL, NULL, 38, '2026-06-01 09:00:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_2', NULL, NULL, NULL, 41, '2026-06-02 10:30:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_3', NULL, NULL, NULL, 44, '2026-06-03 14:20:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_4', NULL, NULL, NULL, 47, '2026-06-05 11:00:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_5', NULL, NULL, NULL, 50, '2026-06-07 16:45:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_9', NULL, NULL, NULL, 53, '2026-06-08 09:15:00'),
+(1, '小明', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_1_10', NULL, NULL, NULL, 56, '2026-06-09 13:30:00'),
+(1, '小明', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_9', NULL, NULL, NULL, 58, '2026-02-24 09:20:00'),
+(2, '小红', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_2', NULL, NULL, NULL, 5, '2026-02-20 14:00:00'),
+(2, '小红', 'QUESTION_ANSWERED', '提问被回答', 10, 'SYSTEM', 'ANS_Q_2', NULL, NULL, NULL, 15, '2026-02-20 15:00:00'),
+(2, '小红', 'SIGN_IN', '完成签到', 5, 'SYSTEM', 'SIGN_1_2', NULL, NULL, NULL, 20, '2026-03-01 08:35:00'),
+(2, '小红', 'HOMEWORK_SUBMIT', '按时提交作业', 10, 'SYSTEM', 'HW_SUB_1_2', NULL, NULL, NULL, 30, '2026-06-11 10:20:00'),
+(2, '小红', 'HOMEWORK_EXCELLENT', '作业获评优秀', 10, 'SYSTEM', 'HW_EXC_1_2', NULL, NULL, NULL, 40, '2026-06-11 16:00:00'),
+(3, '小王', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_3', NULL, NULL, NULL, 5, '2026-02-21 09:00:00'),
+(3, '小王', 'QUESTION_ANSWERED', '提问被回答', 10, 'SYSTEM', 'ANS_Q_3', NULL, NULL, NULL, 15, '2026-02-21 10:30:00'),
+(3, '小王', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_12', NULL, NULL, NULL, 20, '2026-02-24 13:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_1', NULL, NULL, NULL, 23, '2026-05-28 09:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_2', NULL, NULL, NULL, 26, '2026-05-29 10:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_3', NULL, NULL, NULL, 29, '2026-05-30 11:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_4', NULL, NULL, NULL, 32, '2026-05-31 14:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_5', NULL, NULL, NULL, 35, '2026-06-01 09:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_6', NULL, NULL, NULL, 38, '2026-06-02 10:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_7', NULL, NULL, NULL, 41, '2026-06-03 11:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_8', NULL, NULL, NULL, 44, '2026-06-04 14:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_9', NULL, NULL, NULL, 47, '2026-06-05 09:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_10', NULL, NULL, NULL, 50, '2026-06-06 10:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_11', NULL, NULL, NULL, 53, '2026-06-07 11:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_12', NULL, NULL, NULL, 56, '2026-06-08 14:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_13', NULL, NULL, NULL, 59, '2026-06-09 09:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_14', NULL, NULL, NULL, 62, '2026-06-10 10:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_15', NULL, NULL, NULL, 65, '2026-06-11 11:00:00'),
+(3, '小王', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_3_16', NULL, NULL, NULL, 68, '2026-06-12 09:00:00'),
+(3, '小王', 'SIGN_IN', '完成签到', 5, 'SYSTEM', 'SIGN_1_3', NULL, NULL, NULL, 73, '2026-03-01 08:30:00'),
+(3, '小王', 'HOMEWORK_SUBMIT', '按时提交作业', 10, 'SYSTEM', 'HW_SUB_1_3', NULL, NULL, NULL, 83, '2026-03-10 14:00:00'),
+(3, '小王', 'EXAM_PASS', '测验及格', 15, 'SYSTEM', 'EXAM_PASS_3_1', NULL, NULL, NULL, 98, '2026-04-15 16:00:00'),
+(3, '小王', 'MANUAL_ADJUST', '手工调整', 7, 'MANUAL', 'MANUAL_3_1', '算法竞赛获奖额外奖励', 3, '王老师', 105, '2026-05-20 10:00:00'),
+(5, '小赵', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_5', NULL, NULL, NULL, 5, '2026-02-22 08:30:00'),
+(5, '小赵', 'QUESTION_ANSWERED', '提问被回答', 10, 'SYSTEM', 'ANS_Q_5', NULL, NULL, NULL, 15, '2026-02-22 09:15:00'),
+(5, '小赵', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_14', NULL, NULL, NULL, 20, '2026-02-24 15:00:00'),
+(5, '小赵', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_5_1', NULL, NULL, NULL, 23, '2026-06-03 09:00:00'),
+(5, '小赵', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_5_9', NULL, NULL, NULL, 26, '2026-06-05 10:00:00'),
+(5, '小赵', 'LEARNING_COMPLETE', '完成章节学习', 3, 'SYSTEM', 'LC_5_17', NULL, NULL, NULL, 29, '2026-06-07 11:00:00'),
+(5, '小赵', 'HOMEWORK_SUBMIT', '按时提交作业', 7, 'MANUAL', 'MANUAL_5_1', '作业重新提交后通过', 5, '孙老师', 36, '2026-06-11 18:00:00'),
+(6, '小孙', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_6', NULL, NULL, NULL, 5, '2026-02-22 13:00:00'),
+(6, '小孙', 'QUESTION_ANSWERED', '提问被回答', 10, 'SYSTEM', 'ANS_Q_6', NULL, NULL, NULL, 15, '2026-02-22 14:00:00'),
+(7, '小周', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_7', NULL, NULL, NULL, 5, '2026-02-23 10:10:00'),
+(7, '小周', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_16', NULL, NULL, NULL, 10, '2026-02-24 17:00:00'),
+(14, '小蒋', 'ASK_QUESTION', '提交提问', 5, 'SYSTEM', 'ASK_Q_8', NULL, NULL, NULL, 5, '2026-02-25 15:00:00'),
+(14, '小蒋', 'SIGN_IN', '完成签到', 5, 'SYSTEM', 'SIGN_7_14', NULL, NULL, NULL, 10, '2026-03-05 08:30:00'),
+(14, '小蒋', 'HOMEWORK_SUBMIT', '按时提交作业', 10, 'SYSTEM', 'HW_SUB_5_14', NULL, NULL, NULL, 20, '2026-06-10 14:00:00');

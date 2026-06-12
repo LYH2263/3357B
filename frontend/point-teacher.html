@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>积分管理 - 教师端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: all 0.3s; }
+        .main-content { margin-left: 250px; padding: 2rem; transition: all 0.3s; }
+        .nav-link { border-radius: 0.5rem; margin: 0.2rem 0; padding: 0.8rem 1rem; color: #333; }
+        .nav-link:hover, .nav-link.active { background: #f0f4ff; color: var(--primary-color); }
+        .nav-link i { margin-right: 10px; }
+        .rank-medal { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; color: white; }
+        .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); }
+        .rank-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); }
+        .rank-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); }
+        .rank-other { background: #868e96; }
+        .tab-section { display: none; }
+        .tab-section.active { display: block; }
+        .nav-tab-btn { border: none; background: none; padding: 0.75rem 1.5rem; font-weight: 600; color: var(--secondary-color); border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .nav-tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .adjust-positive { color: #2b8a3e; font-weight: 700; }
+        .adjust-negative { color: #c92a2a; font-weight: 700; }
+        .search-student-item { cursor: pointer; transition: background 0.15s; }
+        .search-student-item:hover { background: #f0f4ff; }
+        .summary-stat { text-align: center; padding: 1rem; }
+        .summary-stat .num { font-size: 2rem; font-weight: 800; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column p-3 bg-white" style="border-right:1px solid #e3e6f0;">
+        <a href="teacher.html" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none p-2">
+            <span class="fs-4 fw-bold text-primary">管理后台</span>
+        </a>
+        <hr>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-people"></i>学生管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-book"></i>课程介绍</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-layers"></i>班级管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-person-badge"></i>教师管理</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-file-earmark-text"></i>教学内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-vial"></i>实验内容</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-chat-dots"></i>互动交流</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-newspaper"></i>技术动态</a></li>
+            <li><a href="teacher.html" class="nav-link"><i class="bi bi-megaphone"></i>公告通知</a></li>
+            <li><a href="homework-manage.html" class="nav-link"><i class="bi bi-journal-text"></i>作业管理</a></li>
+            <li><a href="exam-manage.html" class="nav-link"><i class="bi bi-clipboard-check"></i>在线测验</a></li>
+            <li><a href="elective-manage.html" class="nav-link"><i class="bi bi-calendar-check"></i>选课管理</a></li>
+            <li><a href="signin-manage.html" class="nav-link"><i class="bi bi-check2-square"></i>签到管理</a></li>
+            <li><a href="message-teacher.html" class="nav-link"><i class="bi bi-chat-heart"></i>站内私信</a></li>
+            <li><a href="progress-manage.html" class="nav-link"><i class="bi bi-bar-chart-steps"></i>学习进度</a></li>
+            <li><a href="point-teacher.html" class="nav-link active"><i class="bi bi-star-fill text-warning"></i>积分管理</a></li>
+        </ul>
+        <hr>
+        <div class="p-2">
+            <button class="btn btn-outline-danger w-100" onclick="api.clearSession()">登出</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <h4 class="fw-bold mb-4"><i class="bi bi-star-fill text-warning me-2"></i>积分管理</h4>
+
+        <div class="row mb-4" id="summaryStats">
+            <div class="col-md-3 mb-3">
+                <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                    <div class="summary-stat">
+                        <div class="text-muted small">参与学生数</div>
+                        <div class="num" id="statStudents">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                    <div class="summary-stat">
+                        <div class="text-muted small">积分规则数</div>
+                        <div class="num" id="statRules">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                    <div class="summary-stat">
+                        <div class="text-muted small">全校总积分</div>
+                        <div class="num" id="statTotalPoints">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                    <div class="summary-stat">
+                        <div class="text-muted small">平均积分</div>
+                        <div class="num" id="statAvgPoints">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav border-bottom mb-4">
+            <li><button class="nav-tab-btn active" onclick="switchTab('school')">全校总榜</button></li>
+            <li><button class="nav-tab-btn" onclick="switchTab('class')">班级榜单</button></li>
+            <li><button class="nav-tab-btn" onclick="switchTab('adjust')">手工调整</button></li>
+            <li><button class="nav-tab-btn" onclick="switchTab('rules')">规则管理</button></li>
+        </ul>
+
+        <div id="school-section" class="tab-section active">
+            <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:60px;" class="text-center">名次</th>
+                                <th>姓名</th>
+                                <th>学号</th>
+                                <th>班级</th>
+                                <th class="text-end">积分</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schoolRankingBody">
+                            <tr><td colspan="5" class="text-center py-4 text-muted">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="class-section" class="tab-section">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <select class="form-select" id="classSelect" onchange="loadClassRanking()">
+                        <option value="">请选择班级</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:60px;" class="text-center">名次</th>
+                                <th>姓名</th>
+                                <th>学号</th>
+                                <th class="text-end">积分</th>
+                            </tr>
+                        </thead>
+                        <tbody id="classRankingBody">
+                            <tr><td colspan="4" class="text-center py-4 text-muted">请先选择班级</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="adjust-section" class="tab-section">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card p-4 mb-4" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-pencil-square text-primary me-2"></i>手工加减分</h5>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">搜索学生</label>
+                            <input type="text" class="form-control" id="searchStudentInput" placeholder="输入姓名或学号搜索..." oninput="searchStudents()">
+                            <div id="searchResults" class="list-group mt-2" style="display:none;max-height:200px;overflow-y:auto;"></div>
+                        </div>
+                        <div id="selectedStudentArea" style="display:none;" class="mb-3 p-3 bg-light rounded">
+                            <div class="fw-bold"><i class="bi bi-person-check text-success me-1"></i>已选择：<span id="selectedStudentName"></span></div>
+                            <div class="text-muted small" id="selectedStudentInfo"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">调整积分</label>
+                            <div class="input-group">
+                                <select class="form-select" id="adjustType" style="max-width:100px;" onchange="updateAdjustPreview()">
+                                    <option value="+">加分</option>
+                                    <option value="-">扣分</option>
+                                </select>
+                                <input type="number" class="form-control" id="adjustValue" min="1" max="999" value="10" placeholder="分值" oninput="updateAdjustPreview()">
+                            </div>
+                            <div class="form-text" id="adjustPreview">将加 10 分</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">调整理由 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="adjustReason" rows="3" placeholder="请填写加减分理由（必填）"></textarea>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="submitAdjust()">
+                            <i class="bi bi-check-circle me-1"></i>确认提交
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card p-4" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history text-info me-2"></i>最近调整记录</h5>
+                        <div id="recentAdjustments" class="list-group list-group-flush">
+                            <div class="text-center py-4 text-muted">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="rules-section" class="tab-section">
+            <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                <div class="p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-gear-fill text-secondary me-2"></i>积分规则配置</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>规则编码</th>
+                                    <th>规则名称</th>
+                                    <th>积分值</th>
+                                    <th>来源类型</th>
+                                    <th>每日上限</th>
+                                    <th>说明</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rulesBody">
+                                <tr><td colspan="7" class="text-center py-4 text-muted">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="adjustDetailModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">学生积分详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="adjustDetailBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let currentTeacher = null;
+        let selectedStudentId = null;
+        let allStudents = [];
+        let allClasses = [];
+
+        async function init() {
+            var session = api.getSession();
+            if (!session.user || session.role !== 'teacher') {
+                location.href = 'index.html';
+                return;
+            }
+            currentTeacher = session.user;
+            document.getElementById('userInfo') || null;
+            loadSchoolRanking();
+            loadClasses();
+            loadStats();
+            loadAllRules();
+            loadRecentAdjustments();
+            loadAllStudents();
+        }
+
+        async function loadStats() {
+            try {
+                var ranking = await api.request('/point/school-ranking');
+                var rules = await api.request('/point/rules/all');
+                document.getElementById('statStudents').textContent = ranking.length;
+                document.getElementById('statRules').textContent = rules.length;
+                var totalPts = 0;
+                ranking.forEach(function(r) { totalPts += r.totalPoints || 0; });
+                document.getElementById('statTotalPoints').textContent = totalPts;
+                document.getElementById('statAvgPoints').textContent = ranking.length ? Math.round(totalPts / ranking.length) : 0;
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadSchoolRanking() {
+            try {
+                var data = await api.request('/point/school-ranking');
+                renderSchoolRanking(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderSchoolRanking(ranking) {
+            var tbody = document.getElementById('schoolRankingBody');
+            if (!ranking || !ranking.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">暂无排行数据</td></tr>';
+                return;
+            }
+            var html = '';
+            ranking.forEach(function(r) {
+                var medalCls = r.rank <= 3 ? 'rank-' + r.rank : 'rank-other';
+                html += '<tr style="cursor:pointer;" onclick="showStudentDetail(' + r.studentId + ')">';
+                html += '<td class="text-center"><span class="rank-medal ' + medalCls + '">' + r.rank + '</span></td>';
+                html += '<td class="fw-bold">' + r.studentName + '</td>';
+                html += '<td class="text-muted">' + (r.studentNo || '-') + '</td>';
+                html += '<td>' + (r.className || '-') + '</td>';
+                html += '<td class="text-end fw-bold">' + r.totalPoints + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function loadClasses() {
+            try {
+                var data = await api.request('/classes/list');
+                allClasses = data || [];
+                var sel = document.getElementById('classSelect');
+                sel.innerHTML = '<option value="">请选择班级</option>';
+                allClasses.forEach(function(c) {
+                    sel.innerHTML += '<option value="' + c.cid + '">' + c.cname + '</option>';
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadClassRanking() {
+            var classId = document.getElementById('classSelect').value;
+            if (!classId) {
+                document.getElementById('classRankingBody').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">请先选择班级</td></tr>';
+                return;
+            }
+            try {
+                var data = await api.request('/point/class-ranking?classId=' + classId);
+                renderClassRanking(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderClassRanking(ranking) {
+            var tbody = document.getElementById('classRankingBody');
+            if (!ranking || !ranking.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">该班级暂无积分数据</td></tr>';
+                return;
+            }
+            var html = '';
+            ranking.forEach(function(r) {
+                var medalCls = r.rank <= 3 ? 'rank-' + r.rank : 'rank-other';
+                html += '<tr style="cursor:pointer;" onclick="showStudentDetail(' + r.studentId + ')">';
+                html += '<td class="text-center"><span class="rank-medal ' + medalCls + '">' + r.rank + '</span></td>';
+                html += '<td class="fw-bold">' + r.studentName + '</td>';
+                html += '<td class="text-muted">' + (r.studentNo || '-') + '</td>';
+                html += '<td class="text-end fw-bold">' + r.totalPoints + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function loadAllStudents() {
+            try {
+                var data = await api.request('/user/list');
+                allStudents = data || [];
+            } catch (e) { console.error(e); }
+        }
+
+        function searchStudents() {
+            var keyword = document.getElementById('searchStudentInput').value.trim();
+            var container = document.getElementById('searchResults');
+            if (!keyword) { container.style.display = 'none'; return; }
+            var filtered = allStudents.filter(function(s) {
+                return (s.username && s.username.includes(keyword)) || (s.userno && s.userno.includes(keyword));
+            }).slice(0, 10);
+            if (!filtered.length) {
+                container.innerHTML = '<div class="list-group-item text-muted small">未找到匹配学生</div>';
+                container.style.display = 'block';
+                return;
+            }
+            var html = '';
+            filtered.forEach(function(s) {
+                html += '<div class="list-group-item search-student-item" onclick="selectStudent(' + s.uid + ',\'' + s.username + '\',\'' + s.userno + '\',\'' + (s.classname || '') + '\')">';
+                html += '<div class="fw-bold">' + s.username + '</div>';
+                html += '<div class="text-muted small">' + s.userno + ' · ' + (s.classname || '-') + '</div>';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        function selectStudent(uid, name, no, className) {
+            selectedStudentId = uid;
+            document.getElementById('selectedStudentName').textContent = name;
+            document.getElementById('selectedStudentInfo').textContent = no + ' · ' + (className || '-');
+            document.getElementById('selectedStudentArea').style.display = 'block';
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('searchStudentInput').value = name;
+        }
+
+        function updateAdjustPreview() {
+            var type = document.getElementById('adjustType').value;
+            var value = document.getElementById('adjustValue').value || 0;
+            var preview = document.getElementById('adjustPreview');
+            if (type === '+') {
+                preview.textContent = '将加 ' + value + ' 分';
+                preview.className = 'form-text text-success';
+            } else {
+                preview.textContent = '将扣 ' + value + ' 分';
+                preview.className = 'form-text text-danger';
+            }
+        }
+
+        async function submitAdjust() {
+            if (!selectedStudentId) { api.showToast('请先选择学生', 'warning'); return; }
+            var type = document.getElementById('adjustType').value;
+            var value = parseInt(document.getElementById('adjustValue').value) || 0;
+            var reason = document.getElementById('adjustReason').value.trim();
+            if (!reason) { api.showToast('请填写调整理由', 'warning'); return; }
+            if (value <= 0) { api.showToast('积分值必须大于0', 'warning'); return; }
+            var pointValue = type === '+' ? value : -value;
+            try {
+                var result = await api.request('/point/manual-adjust', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        studentId: selectedStudentId,
+                        pointValue: pointValue,
+                        reason: reason,
+                        operatorId: currentTeacher.tid,
+                        operatorName: currentTeacher.tname
+                    })
+                });
+                if (result.success) {
+                    api.showToast(result.message, 'success');
+                    document.getElementById('adjustReason').value = '';
+                    document.getElementById('adjustValue').value = '10';
+                    updateAdjustPreview();
+                    selectedStudentId = null;
+                    document.getElementById('selectedStudentArea').style.display = 'none';
+                    document.getElementById('searchStudentInput').value = '';
+                    loadSchoolRanking();
+                    loadStats();
+                    loadRecentAdjustments();
+                } else {
+                    api.showToast(result.message, 'danger');
+                }
+            } catch (e) { api.showToast('操作失败', 'danger'); }
+        }
+
+        async function loadAllRules() {
+            try {
+                var data = await api.request('/point/rules/all');
+                renderRules(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderRules(rules) {
+            var tbody = document.getElementById('rulesBody');
+            if (!rules || !rules.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">暂无规则</td></tr>';
+                return;
+            }
+            var html = '';
+            rules.forEach(function(r) {
+                var statusBadge = r.isEnabled === 1 ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">禁用</span>';
+                var valueClass = r.pointValue > 0 ? 'adjust-positive' : 'adjust-negative';
+                var limitText = r.dailyLimit ? r.dailyLimit + ' 分' : '无限制';
+                html += '<tr>';
+                html += '<td><code>' + r.ruleCode + '</code></td>';
+                html += '<td class="fw-bold">' + r.ruleName + '</td>';
+                html += '<td class="' + valueClass + '">' + (r.pointValue > 0 ? '+' : '') + r.pointValue + '</td>';
+                html += '<td><span class="badge bg-' + (r.sourceType === 'SYSTEM' ? 'info' : 'warning') + '">' + (r.sourceType === 'SYSTEM' ? '系统自动' : '手工') + '</span></td>';
+                html += '<td>' + limitText + '</td>';
+                html += '<td class="text-muted small">' + (r.description || '-') + '</td>';
+                html += '<td>' + statusBadge + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function loadRecentAdjustments() {
+            try {
+                var data = await api.request('/point/student/details?studentId=0');
+                var container = document.getElementById('recentAdjustments');
+                container.innerHTML = '<div class="text-center py-3 text-muted small">暂无记录（选择学生后查看）</div>';
+            } catch (e) {
+                document.getElementById('recentAdjustments').innerHTML = '<div class="text-center py-3 text-muted small">暂无记录</div>';
+            }
+        }
+
+        async function showStudentDetail(studentId) {
+            try {
+                var info = await api.request('/point/student/info?studentId=' + studentId);
+                var details = await api.request('/point/student/details?studentId=' + studentId);
+                var body = document.getElementById('adjustDetailBody');
+                var html = '<div class="mb-3 p-3 bg-light rounded">';
+                html += '<div class="fw-bold fs-5">' + info.studentName + '</div>';
+                html += '<div class="text-muted small">' + info.studentNo + ' · ' + info.className + '</div>';
+                html += '<div class="mt-2"><span class="badge bg-primary fs-6">总积分：' + info.totalPoints + '</span> ';
+                html += '<span class="badge bg-secondary">班级第' + info.rankInClass + '名</span> ';
+                html += '<span class="badge bg-secondary">全校第' + info.rankInSchool + '名</span></div>';
+                html += '</div>';
+                html += '<h6 class="fw-bold mt-3">最近积分变动</h6>';
+                if (details && details.length) {
+                    html += '<div class="list-group list-group-flush">';
+                    details.slice(0, 10).forEach(function(d) {
+                        var isPositive = d.pointValue > 0;
+                        var color = isPositive ? 'text-success' : 'text-danger';
+                        var time = d.createdAt ? d.createdAt.replace('T', ' ').substring(0, 16) : '-';
+                        html += '<div class="list-group-item px-0 py-2 d-flex justify-content-between">';
+                        html += '<div><div class="small fw-bold">' + d.ruleName + '</div><div class="text-muted small">' + time;
+                        if (d.reason) html += ' · ' + d.reason;
+                        html += '</div></div>';
+                        html += '<div class="fw-bold ' + color + '">' + (isPositive ? '+' : '') + d.pointValue + '</div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="text-muted text-center py-3">暂无记录</div>';
+                }
+                body.innerHTML = html;
+                new bootstrap.Modal(document.getElementById('adjustDetailModal')).show();
+            } catch (e) { console.error(e); }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-section').forEach(function(s) { s.classList.remove('active'); });
+            document.querySelectorAll('.nav-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+            document.getElementById(tab + '-section').classList.add('active');
+            event.target.classList.add('active');
+            if (tab === 'school') loadSchoolRanking();
+            if (tab === 'rules') loadAllRules();
+        }
+
+        init();
+    </script>
+</body>
+</html>

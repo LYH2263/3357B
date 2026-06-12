@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>积分中心 - 学生端</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .nav-link.active { color: var(--primary-color) !important; border-bottom: 2px solid var(--primary-color); }
+        .points-hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 1rem;
+            color: white;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .points-hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%;
+        }
+        .points-hero::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+        }
+        .points-number {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: rgba(255,255,255,0.2);
+            padding: 0.3rem 0.8rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+        }
+        .detail-row {
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .detail-row:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .detail-positive { border-left-color: #2b8a3e; }
+        .detail-negative { border-left-color: #c92a2a; }
+        .rank-row-self {
+            background: linear-gradient(135deg, #fff3bf 0%, #ffe066 100%) !important;
+            font-weight: 600;
+        }
+        .rank-medal {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: white;
+        }
+        .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); }
+        .rank-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); }
+        .rank-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); }
+        .rank-other { background: #868e96; }
+        .rule-card {
+            border-radius: 0.75rem;
+            transition: transform 0.2s;
+        }
+        .rule-card:hover { transform: translateY(-2px); }
+        .stat-mini {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+        }
+        .tab-section { display: none; }
+        .tab-section.active { display: block; }
+        .nav-tab-btn {
+            border: none;
+            background: none;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            color: var(--secondary-color);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="student.html">SchoolSystem</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">首页</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">课程介绍</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">教学内容</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">实验内容</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='student.html'">互动交流</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='homework-student.html'">作业中心</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='exam-student.html'">在线测验</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='elective-student.html'">选课中心</li>
+                    <li class="nav-link px-3" role="button" onclick="location.href='signin-student.html'">签到中心</li>
+                    <li class="nav-link px-3 active" role="button">积分中心</li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span id="userInfo" class="me-3 text-muted small"></span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="api.clearSession()">登出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="points-hero mb-4" id="pointsHero">
+            <div class="row align-items-center position-relative" style="z-index:1;">
+                <div class="col-md-6">
+                    <div class="opacity-75 mb-1">我的积分</div>
+                    <div class="points-number" id="totalPoints">0</div>
+                    <div class="mt-2">
+                        <span class="rank-badge me-2"><i class="bi bi-trophy-fill"></i> 班级第 <span id="classRank">-</span> 名</span>
+                        <span class="rank-badge"><i class="bi bi-globe2"></i> 全校第 <span id="schoolRank">-</span> 名</span>
+                    </div>
+                </div>
+                <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                    <div class="opacity-75 small" id="className">-</div>
+                    <div class="opacity-75 small" id="studentNo">-</div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav border-bottom mb-4">
+            <li><button class="nav-tab-btn active" onclick="switchTab('details')">积分明细</button></li>
+            <li><button class="nav-tab-btn" onclick="switchTab('ranking')">班级排行榜</button></li>
+            <li><button class="nav-tab-btn" onclick="switchTab('rules')">积分规则</button></li>
+        </ul>
+
+        <div id="details-section" class="tab-section active">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-list-ul text-primary me-2"></i>积分流水</h5>
+                <span class="text-muted small" id="detailCount">共 0 条记录</span>
+            </div>
+            <div id="detailsList">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border text-primary spinner-border-sm mb-3"></div>
+                    <div>加载中...</div>
+                </div>
+            </div>
+            <nav class="mt-3" id="paginationArea" style="display:none;">
+                <ul class="pagination justify-content-center" id="paginationList"></ul>
+            </nav>
+        </div>
+
+        <div id="ranking-section" class="tab-section">
+            <h5 class="fw-bold mb-3"><i class="bi bi-trophy-fill text-warning me-2"></i>班级排行榜</h5>
+            <div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:60px;" class="text-center">名次</th>
+                                <th>姓名</th>
+                                <th>学号</th>
+                                <th class="text-end">积分</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingBody">
+                            <tr><td colspan="4" class="text-center py-4 text-muted">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="rules-section" class="tab-section">
+            <h5 class="fw-bold mb-3"><i class="bi bi-gear-fill text-info me-2"></i>积分规则</h5>
+            <div class="row" id="rulesList">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border text-primary spinner-border-sm mb-3"></div>
+                    <div>加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let currentUser = null;
+        let currentPage = 1;
+        const pageSize = 15;
+
+        async function init() {
+            const session = api.getSession();
+            if (!session.user || session.role !== 'student') {
+                location.href = 'index.html';
+                return;
+            }
+            currentUser = session.user;
+            document.getElementById('userInfo').textContent = currentUser.username + '（' + currentUser.userno + '）';
+            loadPointInfo();
+            loadDetails(1);
+        }
+
+        async function loadPointInfo() {
+            try {
+                const data = await api.request('/point/student/info?studentId=' + currentUser.uid);
+                if (data.success !== false) {
+                    document.getElementById('totalPoints').textContent = data.totalPoints || 0;
+                    document.getElementById('classRank').textContent = data.rankInClass || '-';
+                    document.getElementById('schoolRank').textContent = data.rankInSchool || '-';
+                    document.getElementById('className').textContent = data.className || '-';
+                    document.getElementById('studentNo').textContent = data.studentNo || '-';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadDetails(page) {
+            currentPage = page;
+            try {
+                const data = await api.request('/point/student/details-page?studentId=' + currentUser.uid + '&page=' + page + '&size=' + pageSize);
+                const details = data.details || [];
+                document.getElementById('detailCount').textContent = '共 ' + data.total + ' 条记录';
+                renderDetails(details);
+                renderPagination(data.total, data.page, data.size);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderDetails(details) {
+            const container = document.getElementById('detailsList');
+            if (!details.length) {
+                container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-inbox fs-1 d-block mb-2"></i>暂无积分记录</div>';
+                return;
+            }
+            let html = '<div class="card" style="border:none;border-radius:0.75rem;box-shadow:var(--card-shadow);"><div class="list-group list-group-flush">';
+            details.forEach(function(d) {
+                var isPositive = d.pointValue > 0;
+                var cls = isPositive ? 'detail-positive' : 'detail-negative';
+                var sign = isPositive ? '+' : '';
+                var color = isPositive ? 'text-success' : 'text-danger';
+                var icon = isPositive ? 'bi-arrow-up-circle-fill' : 'bi-arrow-down-circle-fill';
+                var time = d.createdAt ? d.createdAt.replace('T', ' ').substring(0, 16) : '-';
+                html += '<div class="list-group-item detail-row ' + cls + ' px-3 py-3">';
+                html += '<div class="d-flex justify-content-between align-items-center">';
+                html += '<div>';
+                html += '<div class="fw-bold small"><i class="bi ' + icon + ' ' + color + ' me-1"></i>' + d.ruleName + '</div>';
+                html += '<div class="text-muted small mt-1">' + time;
+                if (d.reason) html += ' · <span class="text-dark">' + d.reason + '</span>';
+                if (d.operatorName) html += ' · 操作人：' + d.operatorName;
+                html += '</div></div>';
+                html += '<div class="text-end">';
+                html += '<div class="fw-bold ' + color + '">' + sign + d.pointValue + '</div>';
+                html += '<div class="text-muted small">余额 ' + (d.balanceAfter != null ? d.balanceAfter : '-') + '</div>';
+                html += '</div></div></div>';
+            });
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+
+        function renderPagination(total, page, size) {
+            var area = document.getElementById('paginationArea');
+            var list = document.getElementById('paginationList');
+            var totalPages = Math.ceil(total / size);
+            if (totalPages <= 1) { area.style.display = 'none'; return; }
+            area.style.display = 'block';
+            var html = '';
+            html += '<li class="page-item ' + (page <= 1 ? 'disabled' : '') + '"><a class="page-link" href="#" onclick="loadDetails(' + (page - 1) + ');return false;">&laquo;</a></li>';
+            var start = Math.max(1, page - 2);
+            var end = Math.min(totalPages, page + 2);
+            for (var i = start; i <= end; i++) {
+                html += '<li class="page-item ' + (i === page ? 'active' : '') + '"><a class="page-link" href="#" onclick="loadDetails(' + i + ');return false;">' + i + '</a></li>';
+            }
+            html += '<li class="page-item ' + (page >= totalPages ? 'disabled' : '') + '"><a class="page-link" href="#" onclick="loadDetails(' + (page + 1) + ');return false;">&raquo;</a></li>';
+            list.innerHTML = html;
+        }
+
+        async function loadRanking() {
+            if (!currentUser.classId) return;
+            try {
+                var data = await api.request('/point/class-ranking?classId=' + currentUser.classId);
+                renderRanking(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderRanking(ranking) {
+            var tbody = document.getElementById('rankingBody');
+            if (!ranking || !ranking.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">暂无排行数据</td></tr>';
+                return;
+            }
+            var html = '';
+            ranking.forEach(function(r) {
+                var isSelf = r.studentId == currentUser.uid;
+                var rowCls = isSelf ? 'rank-row-self' : '';
+                var medalCls = r.rank <= 3 ? 'rank-' + r.rank : 'rank-other';
+                html += '<tr class="' + rowCls + '">';
+                html += '<td class="text-center"><span class="rank-medal ' + medalCls + '">' + r.rank + '</span></td>';
+                html += '<td>' + r.studentName + (isSelf ? ' <span class="badge bg-primary">我</span>' : '') + '</td>';
+                html += '<td class="text-muted small">' + (r.studentNo || '-') + '</td>';
+                html += '<td class="text-end fw-bold">' + r.totalPoints + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function loadRules() {
+            try {
+                var data = await api.request('/point/rules');
+                renderRules(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderRules(rules) {
+            var container = document.getElementById('rulesList');
+            if (!rules || !rules.length) {
+                container.innerHTML = '<div class="text-center py-5 text-muted">暂无积分规则</div>';
+                return;
+            }
+            var html = '';
+            rules.forEach(function(r) {
+                var icon = r.pointValue > 0 ? 'bi-plus-circle-fill' : 'bi-dash-circle-fill';
+                var color = r.pointValue > 0 ? 'success' : 'danger';
+                var limitText = r.dailyLimit ? '每日上限 ' + r.dailyLimit + ' 分' : '无每日上限';
+                html += '<div class="col-md-4 mb-3">';
+                html += '<div class="card rule-card p-3 h-100">';
+                html += '<div class="d-flex align-items-center mb-2">';
+                html += '<i class="bi ' + icon + ' text-' + color + ' fs-4 me-2"></i>';
+                html += '<span class="fw-bold">' + r.ruleName + '</span></div>';
+                html += '<div class="text-' + color + ' fw-bold fs-5 mb-1">' + (r.pointValue > 0 ? '+' : '') + r.pointValue + ' 分</div>';
+                html += '<div class="text-muted small">' + (r.description || '') + '</div>';
+                html += '<div class="text-muted small mt-1"><i class="bi bi-clock me-1"></i>' + limitText + '</div>';
+                html += '</div></div>';
+            });
+            container.innerHTML = html;
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-section').forEach(function(s) { s.classList.remove('active'); });
+            document.querySelectorAll('.nav-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+            document.getElementById(tab + '-section').classList.add('active');
+            event.target.classList.add('active');
+            if (tab === 'ranking') loadRanking();
+            if (tab === 'rules') loadRules();
+        }
+
+        init();
+    </script>
+</body>
+</html>
